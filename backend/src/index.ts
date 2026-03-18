@@ -12,7 +12,7 @@ app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Movies & Comments API Documentation'
+  customSiteTitle: 'TLDR API Documentation'
 }));
 
 app.use((_req, res, next) => {
