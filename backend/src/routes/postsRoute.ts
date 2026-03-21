@@ -1,0 +1,13 @@
+import { Router } from "express";
+import { postController } from "../controllers/postController";
+
+const router = Router();
+
+router.post("/", postController.createPost);
+router.get("/", postController.getAllPosts);
+router.get("/:id", postController.getPostById);
+router.put("/:id", postController.updatePostById);
+router.delete("/:id", postController.deletePostById);
+router.post("/:id/like", postController.likePost);
+
+export default router;

@@ -1,8 +1,10 @@
 import express, { Express } from "express";
 import mongoose from "mongoose";
 import { swaggerUi, swaggerSpec } from "./swagger";
-
 import dotenv from "dotenv";
+import postsRoute from "./routes/postsRoute";
+
+
 dotenv.config({ path: ".env.dev" });
 
 const app = express();
@@ -21,7 +23,9 @@ app.use((_req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "*");
   next();
 });
-// API routes
+
+// Routes
+app.use("/api/post", postsRoute);
 
 
 // Swagger JSON endpoint
@@ -44,23 +48,30 @@ const initApp = () => {
         resolve(app);
       });
     const db = mongoose.connection;
-    db.on("error", (error) => console.error(error));
-    db.once("open", () => console.log("Connected to Database"));
+    db.on("error", (error) => {
+      if (process.env.NODE_ENV !== "test") console.error(error);
+    });
+    db.once("open", () => {
+      if (process.env.NODE_ENV !== "test") console.log("Connected to Database");
+    });
   });
   return pr;
 };
 
 // Start the app and handle errors
-initApp()
-  .then((app) => {
-    const port = process.env.PORT || 3000;
-    app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
+
+if (process.env.NODE_ENV !== "test") {
+  initApp()
+    .then((app) => {
+      const port = process.env.PORT || 3000;
+      app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to start app:", err);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error("Failed to start app:", err);
-    process.exit(1);
-  });
+}
 
 export default initApp;
