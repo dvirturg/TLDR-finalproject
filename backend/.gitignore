@@ -1,2 +1,5 @@
 node_modules
 .env*
+public/uploads/posts/*
+!public/uploads/posts/.gitkeep
+.../images/*

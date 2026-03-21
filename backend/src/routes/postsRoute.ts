@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { postController } from "../controllers/postController";
+import { uploadPostImage } from "../middleware/postImageUpload";
 
 const router = Router();
 
-router.post("/", postController.createPost);
+router.post("/", uploadPostImage, postController.createPost);
 router.get("/", postController.getAllPosts);
 router.get("/:id", postController.getPostById);
 router.put("/:id", postController.updatePostById);

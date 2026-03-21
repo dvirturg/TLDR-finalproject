@@ -4,29 +4,43 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.postController = void 0;
+const promises_1 = __importDefault(require("fs/promises"));
+const path_1 = __importDefault(require("path"));
 const postModel_1 = __importDefault(require("../models/postModel"));
+const removeUploadedFile = async (filePath) => {
+    if (!filePath) {
+        return;
+    }
+    await promises_1.default.unlink(path_1.default.resolve(filePath)).catch(() => undefined);
+};
 exports.postController = {
     async createPost(req, res) {
-        const postData = req.body;
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+        const author = typeof req.body.author === "string" ? req.body.author.trim() : "";
+        const imageUrl = req.file ? `/public/uploads/posts/${req.file.filename}` : "";
+        if (!text || !author) {
+            await removeUploadedFile(req.file?.path);
+            res.status(400).json({ message: "text and author are required" });
+            return;
+        }
         try {
-            const newPost = await postModel_1.default.create(postData);
+            const newPost = await postModel_1.default.create({ text, author, imageUrl });
             res.status(201).json(newPost);
         }
         catch (err) {
+            await removeUploadedFile(req.file?.path);
             console.error(err);
             res.status(500).json({ message: "Error creating post" });
         }
     },
     async getAllPosts(req, res) {
         try {
-            if (req.query) {
+            if (Object.keys(req.query).length > 0) {
                 const filterData = await postModel_1.default.find(req.query);
                 return res.json(filterData);
             }
-            else {
-                const allPosts = await postModel_1.default.find();
-                return res.json(allPosts);
-            }
+            const allPosts = await postModel_1.default.find();
+            return res.json(allPosts);
         }
         catch (err) {
             console.error(err);
@@ -40,9 +54,7 @@ exports.postController = {
             if (!post) {
                 return res.status(404).json({ message: "Post not found" });
             }
-            else {
-                return res.json(post);
-            }
+            return res.json(post);
         }
         catch (err) {
             console.error(err);
@@ -53,7 +65,7 @@ exports.postController = {
         const postId = req.params.id;
         const updateData = req.body;
         try {
-            const updatedPost = await postModel_1.default.findByIdAndUpdate(postId, updateData, { new: true });
+            const updatedPost = await postModel_1.default.findByIdAndUpdate(postId, updateData, { returnDocument: "after" });
             if (!updatedPost) {
                 return res.status(404).json({ message: "Post not found" });
             }
@@ -86,8 +98,11 @@ exports.postController = {
             if (!post) {
                 return res.status(404).json({ message: "Post not found" });
             }
-            if (post.likes.includes(userId)) {
-                return res.status(400).json({ message: "User already liked this post" });
+            const likeIndex = post.likes.findIndex((like) => like.toString() === userId);
+            if (likeIndex !== -1) {
+                post.likes.splice(likeIndex, 1);
+                await post.save();
+                return res.json({ message: "Post unliked successfully" });
             }
             post.likes.push(userId);
             await post.save();
@@ -95,7 +110,7 @@ exports.postController = {
         }
         catch (err) {
             console.error(err);
-            return res.status(500).json({ message: "Error liking post" });
+            return res.status(500).json({ message: "Error toggling post like" });
         }
     }
 };

@@ -1,45 +1,77 @@
-
+import fs from "fs/promises";
+import path from "path";
+import mongoose from "mongoose";
 import request from "supertest";
 import initApp from "../index";
 import Post from "../models/postModel";
-import mongoose from "mongoose";
+import { POST_IMAGE_MAX_FILE_SIZE } from "../middleware/postImageUpload";
 
 const TEST_MONGO_URI = "mongodb://localhost:27017/tldr_test";
+const uploadsDir = path.resolve(__dirname, "../../public/uploads/posts");
+const sourceImagesDir = path.resolve(__dirname, "../../../images");
+
+type PostData = { text: string; author: string; imageUrl?: string; _id?: string };
+
+let app: any;
+let postsList: PostData[];
+let realImagePath: string;
+
+const cleanupUploadedFiles = async () => {
+  try {
+    const files = await fs.readdir(uploadsDir);
+    await Promise.all(
+      files
+        .filter((file) => file !== ".gitkeep")
+        .map((file) => fs.unlink(path.join(uploadsDir, file))),
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+};
+
+const createJsonPost = async (post: PostData) => {
+  const response = await request(app).post("/api/post").send(post);
+  return response;
+};
 
 beforeAll(async () => {
   jest.spyOn(console, "error").mockImplementation(() => {});
-  await mongoose.connect(TEST_MONGO_URI);
+  process.env.MONGO_URI = TEST_MONGO_URI;
+  app = await initApp();
+  const imageFiles = await fs.readdir(sourceImagesDir);
+  const firstImage = imageFiles.find((file) => /\.(jpg|jpeg|png|gif|webp)$/i.test(file));
+  if (!firstImage) {
+    throw new Error(`No image files found in ${sourceImagesDir}`);
+  }
+  realImagePath = path.join(sourceImagesDir, firstImage);
   await Post.deleteMany();
+  await cleanupUploadedFiles();
 });
 
 afterAll(async () => {
   await Post.deleteMany();
+  await cleanupUploadedFiles();
   await mongoose.disconnect();
 });
 
-
-type PostData = { text: string; author: string; _id?: string };
-let postsList: PostData[];
-
-let app: any;
-
-describe("Sample Test Suite", () => {
+describe("Post API", () => {
   beforeEach(async () => {
-    await mongoose.connect(TEST_MONGO_URI);
     await Post.deleteMany();
-    // Initialize app for each test
-    app = await initApp();
+    await cleanupUploadedFiles();
+
     const dummyAuthor = new mongoose.Types.ObjectId().toString();
     postsList = [
-      { text: "this is my post", author: dummyAuthor },
-      { text: "this is my second post", author: dummyAuthor },
-      { text: "this is my third post", author: dummyAuthor },
-      { text: "this is my fourth post", author: dummyAuthor },
+      { text: "this is my post", author: dummyAuthor, imageUrl: "" },
+      { text: "this is my second post", author: dummyAuthor, imageUrl: "" },
+      { text: "this is my third post", author: dummyAuthor, imageUrl: "" },
+      { text: "this is my fourth post", author: dummyAuthor, imageUrl: "" },
     ];
-    // Save posts and store their IDs
-    for (let i = 0; i < postsList.length; i++) {
-      const response = await request(app).post("/api/post").send(postsList[i]);
-      postsList[i]._id = response.body._id || response.body.id;
+
+    for (const post of postsList) {
+      const response = await createJsonPost(post);
+      post._id = response.body._id || response.body.id;
     }
   });
 
@@ -50,7 +82,73 @@ describe("Sample Test Suite", () => {
     for (let i = 0; i < postsList.length; i++) {
       expect(response.body[i].text).toBe(postsList[i].text);
       expect(response.body[i].author).toBe(postsList[i].author);
+      expect(response.body[i].imageUrl).toBe("");
     }
+  });
+
+  test("Create Post with image upload", async () => {
+    const author = new mongoose.Types.ObjectId().toString();
+
+    const response = await request(app)
+      .post("/api/post")
+      .field("text", "post with image")
+      .field("author", author)
+      .attach("image", realImagePath);
+
+    expect(response.status).toBe(201);
+    expect(response.body.text).toBe("post with image");
+    expect(response.body.author).toBe(author);
+    expect(response.body.imageUrl).toMatch(/^\/public\/uploads\/posts\/post-\d+-\d+\.(jpg|jpeg|png|gif|webp)$/);
+
+    const savedPost = await Post.findById(response.body._id);
+    expect(savedPost).not.toBeNull();
+    expect(savedPost!.imageUrl).toBe(response.body.imageUrl);
+
+    const uploadedFilePath = path.join(uploadsDir, path.basename(response.body.imageUrl));
+    const uploadedFileStat = await fs.stat(uploadedFilePath);
+    expect(uploadedFileStat.isFile()).toBe(true);
+  });
+
+  test("Uploaded image is publicly reachable", async () => {
+    const author = new mongoose.Types.ObjectId().toString();
+
+    const createResponse = await request(app)
+      .post("/api/post")
+      .field("text", "public image")
+      .field("author", author)
+      .attach("image", realImagePath);
+
+    expect(createResponse.status).toBe(201);
+
+    const imageResponse = await request(app).get(createResponse.body.imageUrl);
+    expect(imageResponse.status).toBe(200);
+    expect(imageResponse.headers["content-type"]).toMatch(/^image\//);
+  });
+  
+  test("Create Post rejects invalid image type", async () => {
+    const author = new mongoose.Types.ObjectId().toString();
+
+    const response = await request(app)
+      .post("/api/post")
+      .field("text", "bad image")
+      .field("author", author)
+      .attach("image", Buffer.from("not-an-image"), "bad-file.txt");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/only image files are allowed/i);
+  });
+
+  test("Create Post rejects oversized image", async () => {
+    const author = new mongoose.Types.ObjectId().toString();
+
+    const response = await request(app)
+      .post("/api/post")
+      .field("text", "large image")
+      .field("author", author)
+      .attach("image", Buffer.alloc(POST_IMAGE_MAX_FILE_SIZE + 1, 1), "large-image.png");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/too large/i);
   });
 
   test("Get All Posts", async () => {
@@ -59,17 +157,15 @@ describe("Sample Test Suite", () => {
     expect(response.body.length).toBe(postsList.length);
   });
 
-  test("Get Posts by sender", async () => {
-    const response = await request(app).get(
-      `/api/post?author=${postsList[0].author}`
-    );
+  test("Get Posts by author", async () => {
+    const response = await request(app).get(`/api/post?author=${postsList[0].author}`);
     expect(response.status).toBe(200);
     expect(response.body.length).toBe(postsList.length);
     expect(response.body[0].text).toBe(postsList[0].text);
   });
 
   test("Get Post by ID", async () => {
-    const response = await request(app).get("/api/post/" + postsList[0]._id);
+    const response = await request(app).get(`/api/post/${postsList[0]._id}`);
     expect(response.status).toBe(200);
     expect(response.body.text).toBe(postsList[0].text);
     expect(response.body.author).toBe(postsList[0].author);
@@ -85,7 +181,7 @@ describe("Sample Test Suite", () => {
   test("Update Post", async () => {
     postsList[0].text = "This is an updated post";
     const response = await request(app)
-      .put("/api/post/" + postsList[0]._id)
+      .put(`/api/post/${postsList[0]._id}`)
       .send(postsList[0]);
     expect(response.status).toBe(200);
     expect(response.body.text).toBe(postsList[0].text);
@@ -102,11 +198,11 @@ describe("Sample Test Suite", () => {
   });
 
   test("Delete Post", async () => {
-    const response = await request(app).delete("/api/post/" + postsList[0]._id);
+    const response = await request(app).delete(`/api/post/${postsList[0]._id}`);
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("message", "Post deleted successfully");
 
-    const getResponse = await request(app).get("/api/post/" + postsList[0]._id);
+    const getResponse = await request(app).get(`/api/post/${postsList[0]._id}`);
     expect(getResponse.status).toBe(404);
   });
 
@@ -116,9 +212,10 @@ describe("Sample Test Suite", () => {
     expect(response.body.message).toMatch(/not found/i);
   });
 
-  test("Create Post with missing fields returns 500 or 400", async () => {
+  test("Create Post with missing fields returns 400", async () => {
     const response = await request(app).post("/api/post").send({});
-    expect([400, 500]).toContain(response.status);
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/text and author are required/i);
   });
 
   test("Like Post", async () => {

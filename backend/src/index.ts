@@ -1,5 +1,6 @@
 import express, { Express } from "express";
 import mongoose from "mongoose";
+import path from "path";
 import { swaggerUi, swaggerSpec } from "./swagger";
 import dotenv from "dotenv";
 import postsRoute from "./routes/postsRoute";
@@ -8,7 +9,10 @@ import postsRoute from "./routes/postsRoute";
 dotenv.config({ path: ".env.dev" });
 
 const app = express();
+const publicDir = path.resolve(__dirname, "..", "public");
+
 app.use(express.json());
+app.use("/public", express.static(publicDir));
 
 // Swagger UI setup
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
