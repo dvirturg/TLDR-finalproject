@@ -1,4 +1,4 @@
-import  Post  from "../models/postModel";
+import  Post from "../models/postModel";
 import { Request, Response } from "express";
 
 
@@ -82,18 +82,15 @@ export const postController = {
             if (!post) {
                 return res.status(404).json({ message: "Post not found" });
             }   
-            const likeIndex = post.likes.findIndex((like) => like.toString() === userId);
-            if (likeIndex !== -1) {
-                post.likes.splice(likeIndex, 1);
-                await post.save();
-                return res.json({ message: "Post unliked successfully" });
+            if (post.likes.includes(userId)) {
+                return res.status(400).json({ message: "User already liked this post" });
             }
             post.likes.push(userId);
             await post.save();
             return res.json({ message: "Post liked successfully" });
         } catch (err) {
             console.error(err);
-            return res.status(500).json({ message: "Error toggling post like" });
+            return res.status(500).json({ message: "Error liking post" });
         }
     }
 };
