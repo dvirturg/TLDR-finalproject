@@ -5,16 +5,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const mongoose_1 = __importDefault(require("mongoose"));
+const path_1 = __importDefault(require("path"));
 const swagger_1 = require("./swagger");
 const dotenv_1 = __importDefault(require("dotenv"));
+const postsRoute_1 = __importDefault(require("./routes/postsRoute"));
 dotenv_1.default.config({ path: ".env.dev" });
 const app = (0, express_1.default)();
+const publicDir = path_1.default.resolve(__dirname, "..", "public");
 app.use(express_1.default.json());
+app.use("/public", express_1.default.static(publicDir));
 // Swagger UI setup
 app.use("/api-docs", swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagger_1.swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Movies & Comments API Documentation'
+    customSiteTitle: 'TLDR API Documentation'
 }));
 app.use((_req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -22,7 +26,8 @@ app.use((_req, res, next) => {
     res.setHeader("Access-Control-Allow-Methods", "*");
     next();
 });
-// API routes
+// Routes
+app.use("/api/post", postsRoute_1.default);
 // Swagger JSON endpoint
 app.get('/api-docs.json', (_req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -41,21 +46,29 @@ const initApp = () => {
             resolve(app);
         });
         const db = mongoose_1.default.connection;
-        db.on("error", (error) => console.error(error));
-        db.once("open", () => console.log("Connected to Database"));
+        db.on("error", (error) => {
+            if (process.env.NODE_ENV !== "test")
+                console.error(error);
+        });
+        db.once("open", () => {
+            if (process.env.NODE_ENV !== "test")
+                console.log("Connected to Database");
+        });
     });
     return pr;
 };
 // Start the app and handle errors
-initApp()
-    .then((app) => {
-    const port = process.env.PORT || 3000;
-    app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
+if (process.env.NODE_ENV !== "test") {
+    initApp()
+        .then((app) => {
+        const port = process.env.PORT || 3000;
+        app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
+        });
+    })
+        .catch((err) => {
+        console.error("Failed to start app:", err);
+        process.exit(1);
     });
-})
-    .catch((err) => {
-    console.error("Failed to start app:", err);
-    process.exit(1);
-});
+}
 exports.default = initApp;
