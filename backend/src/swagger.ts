@@ -1,5 +1,6 @@
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
+import { postPaths, postSchemas, postTags } from "./docs/post.swagger";
 
 const swaggerSpec = swaggerJsdoc({
   definition: {
@@ -24,12 +25,19 @@ const swaggerSpec = swaggerJsdoc({
           description: "Enter your JWT access token below",
         },
       },
+      schemas: {
+        ...postSchemas,
+      },
     },
     security: [
       {
         bearerAuth: [],
       },
     ],
+    paths: {
+      ...postPaths,
+    },
+    tags: [...postTags],
   },
   apis: [],
 });

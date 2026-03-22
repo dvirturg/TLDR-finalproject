@@ -7,6 +7,7 @@ exports.swaggerSpec = exports.swaggerUi = void 0;
 const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 exports.swaggerUi = swagger_ui_express_1.default;
+const post_swagger_1 = require("./docs/post.swagger");
 const swaggerSpec = (0, swagger_jsdoc_1.default)({
     definition: {
         openapi: "3.0.0",
@@ -30,12 +31,19 @@ const swaggerSpec = (0, swagger_jsdoc_1.default)({
                     description: "Enter your JWT access token below",
                 },
             },
+            schemas: {
+                ...post_swagger_1.postSchemas,
+            },
         },
         security: [
             {
                 bearerAuth: [],
             },
         ],
+        paths: {
+            ...post_swagger_1.postPaths,
+        },
+        tags: [...post_swagger_1.postTags],
     },
     apis: [],
 });
