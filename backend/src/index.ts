@@ -4,6 +4,7 @@ import path from "path";
 import { swaggerUi, swaggerSpec } from "./swagger";
 import dotenv from "dotenv";
 import postsRoute from "./routes/postsRoute";
+import commentRoute from "./routes/commentRoute";
 
 
 dotenv.config({ path: ".env.dev" });
@@ -30,6 +31,7 @@ app.use((_req, res, next) => {
 
 // Routes
 app.use("/api/post", postsRoute);
+app.use("/api/comment", commentRoute);
 
 
 // Swagger JSON endpoint
