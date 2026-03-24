@@ -5,7 +5,7 @@ import { swaggerUi, swaggerSpec } from "./swagger";
 import dotenv from "dotenv";
 import postsRoute from "./routes/postsRoute";
 import commentRoute from "./routes/commentRoute";
-
+import userRoute from "./routes/usersRoute";
 
 dotenv.config({ path: ".env.dev" });
 
@@ -14,6 +14,7 @@ const publicDir = path.resolve(__dirname, "..", "public");
 
 app.use(express.json());
 app.use("/public", express.static(publicDir));
+app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 // Swagger UI setup
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -32,6 +33,7 @@ app.use((_req, res, next) => {
 // Routes
 app.use("/api/post", postsRoute);
 app.use("/api/comment", commentRoute);
+app.use("/api/user", userRoute);
 
 
 // Swagger JSON endpoint

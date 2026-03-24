@@ -1,7 +1,9 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
+import User from '../models/userModel';
+import Post from '../models/postModel';
 import { AuthRequest } from '../types/auth';
-import User from '../model/userModel';
+import { toPostDTO, getCommentCountMap } from '../utils/postSerializer';
 
 export async function getUserById(req: AuthRequest, res: Response): Promise<void> {
   const user = await User.findById(req.params['id']).select('-password -refreshToken');
@@ -78,4 +80,15 @@ export async function searchUsers(req: AuthRequest, res: Response): Promise<void
     username: u.username,
     profileUrl: u.profileUrl,
   })));
+}
+
+export async function getUserPosts(req: AuthRequest, res: Response): Promise<void> {
+  const posts = await Post.find({ author: req.params['id'] })
+    .sort({ createdAt: -1 })
+    .populate('author', 'username profileUrl');
+
+  const countMap = await getCommentCountMap(posts.map((p) => p._id as Types.ObjectId));
+  const data = posts.map((p) => toPostDTO(p, countMap.get(String(p._id)) ?? 0));
+
+  res.json(data);
 }
