@@ -10,5 +10,6 @@ router.get("/:id", postController.getPostById);
 router.put("/:id", postController.updatePostById);
 router.delete("/:id", postController.deletePostById);
 router.post("/:id/like", postController.likePost);
+router.get("/user/:userId", postController.getPostsByUserId);
 
 export default router;
