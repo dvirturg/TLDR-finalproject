@@ -33,10 +33,7 @@ export const commentController = {
         return res.status(404).json({ message: "Post not found" });
       }
 
-      // יצירת התגובה
       const newComment = await Comment.create({ text, author, postId });
-      
-      // החזרת התגובה החדשה עם פרטי הכותב מיד
       const populatedComment = await Comment.findById(newComment._id).populate("author", "username profileUrl");
       
       return res.status(201).json(populatedComment);
