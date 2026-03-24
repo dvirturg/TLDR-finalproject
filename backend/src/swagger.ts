@@ -1,51 +1,48 @@
-import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from "swagger-jsdoc";
+import swaggerUi from "swagger-ui-express";
+import { postPaths, postSchemas, postTags } from "./docs/post.swagger";
+import { commentPaths, commentSchemas, commentTags } from "./docs/comment.swagger";
 
-const options: swaggerJsdoc.Options = {
+const swaggerSpec = swaggerJsdoc({
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'TL;DR API',
-      version: '1.0.0',
-      description: 'API documentation for the TL;DR social networking app',
+      title: "TL;DR API",
+      version: "1.0.0",
+      description: "API documentation for the TL;DR social networking app",
     },
     servers: [
       {
-        url: 'http://localhost:5000',
-        description: 'Development server',
+        url: "http://localhost:5000",
+        description: "Development server",
       },
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Enter your JWT access token below',
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "Enter your JWT access token below",
         },
       },
+      schemas: {
+        ...commentSchemas,
+        ...postSchemas,
+      },
     },
-    // Global security requirement (optional, can also be applied per-route)
     security: [
       {
         bearerAuth: [],
       },
     ],
-  },
-  // Scan these files for JSDoc/Swagger comments
-  apis: ['./src/routes/*.ts', './src/models/*.ts'], 
-};
-
-const completeOptions: swaggerJsdoc.Options = {
-    definition: {
-        openapi: '3.0.0',
-        info: options.definition!.info!,
-        servers: options.definition!.servers,
-        components: options.definition!.components,
-        tags: options.definition!.tags
+    paths: {
+      ...commentPaths,
+      ...postPaths,
     },
-    apis: [] // No need for file parsing since we have manual paths
-};
+    tags: [...commentTags, ...postTags],
+  },
+  apis: [],
+});
 
-const swaggerSpec = swaggerJsdoc(completeOptions);
 export { swaggerUi, swaggerSpec };
