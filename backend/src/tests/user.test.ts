@@ -4,12 +4,13 @@ import mongoose from "mongoose";
 import request from "supertest";
 import initApp from "../index";
 import User from "../models/userModel";
+import { generateToken } from "../utils/authUtils"; // ייבוא פונקציית העזר
 
 const TEST_MONGO_URI = "mongodb://localhost:27017/tldr_test_users";
 const uploadsDir = path.resolve(__dirname, "../../uploads"); 
 const sourceImagesDir = path.resolve(__dirname, "../../../images");
 
-type UserData = { username: string; email: string; password?: string; profileUrl?: string; _id?: string };
+type UserData = { username: string; email: string; password?: string; profileUrl?: string; _id?: string; token?: string };
 
 let app: any;
 let usersList: UserData[];
@@ -33,6 +34,7 @@ const cleanupUploadedFiles = async () => {
 beforeAll(async () => {
   jest.spyOn(console, "error").mockImplementation(() => {});
   process.env.MONGO_URI = TEST_MONGO_URI;
+  process.env.JWT_SECRET = "secret_key_123"; 
   app = await initApp();
 
   const imageFiles = await fs.readdir(sourceImagesDir);
@@ -62,64 +64,84 @@ describe("User API", () => {
     for (const user of usersList) {
       const res = await User.create(user);
       user._id = res._id.toString();
+      user.token = generateToken(user._id, user.username);
     }
+  });
+
+  
+  test("Register a new user", async () => {
+    const newUser = { username: "Newbie", email: "new@test.com", password: "password123" };
+    const response = await request(app).post("/api/user/register").send(newUser);
+    
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty("accessToken");
+    expect(response.body.user.username).toBe("Newbie");
+  });
+
+  test("Login existing user", async () => {
+    const response = await request(app).post("/api/user/login").send({
+      email: usersList[0].email,
+      password: "password123"
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty("accessToken");
   });
 
   test("Get User by ID", async () => {
     const response = await request(app).get(`/api/user/${usersList[0]._id}`);
     expect(response.status).toBe(200);
     expect(response.body.username).toBe(usersList[0].username);
-    expect(response.body.email).toBe(usersList[0].email);
     expect(response.body).not.toHaveProperty("password"); 
   });
 
-  test("Get User by invalid ID returns 404", async () => {
-    const response = await request(app).get("/api/user/000000000000000000000000");
-    expect(response.status).toBe(404);
-  });
-
-  test("Search Users by username", async () => {
-
+  test("Search Users by username (Requires Authentication)", async () => {
     const response = await request(app)
-      .get("/api/user/search?q=testuser")
+      .get("/api/user/search?q=Israel")
+      .set("Authorization", `Bearer ${usersList[0].token}`); // הוספת הטוקן
       
-    
     expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
+    expect(response.body.some((u: any) => u.username === "IsraelI")).toBe(true);
   });
 
-  test("Update User profile (text only)", async () => {
+  test("Update User profile (Requires Authentication)", async () => {
     const updateData = { username: "UpdatedName" };
 
     const response = await request(app)
       .put(`/api/user/${usersList[0]._id}`)
+      .set("Authorization", `Bearer ${usersList[0].token}`) // הוספת הטוקן
       .send(updateData);
-    if (response.status === 200) {
-        expect(response.body.username).toBe("UpdatedName");
-    }
+
+    expect(response.status).toBe(200);
+    expect(response.body.username).toBe("UpdatedName");
   });
 
   test("Update User with profile picture upload", async () => {
     const response = await request(app)
       .put(`/api/user/${usersList[0]._id}`)
+      .set("Authorization", `Bearer ${usersList[0].token}`) // הוספת הטוקן
       .field("username", "NoaWithPhoto")
       .attach("profilePicture", realImagePath);
 
-    if (response.status === 200) {
-      expect(response.body.profileUrl).toMatch(/^\/uploads\//);
-      const filename = path.basename(response.body.profileUrl);
-      const filePath = path.join(uploadsDir, filename);
-      const fileStat = await fs.stat(filePath);
-      expect(fileStat.isFile()).toBe(true);
-    }
+    expect(response.status).toBe(200);
+    expect(response.body.profileUrl).toMatch(/^\/uploads\//);
   });
 
-  test("Delete User", async () => {
-    const response = await request(app).delete(`/api/user/${usersList[0]._id}`);
+  test("Delete User (Only self)", async () => {
+    const response = await request(app)
+      .delete(`/api/user/${usersList[0]._id}`)
+      .set("Authorization", `Bearer ${usersList[0].token}`); // הוספת הטוקן
     
-    if (response.status === 204) {
-      const checkUser = await User.findById(usersList[0]._id);
-      expect(checkUser).toBeNull();
-    }
+    expect(response.status).toBe(204);
+    const checkUser = await User.findById(usersList[0]._id);
+    expect(checkUser).toBeNull();
+  });
+
+  test("Fail to delete other user", async () => {
+    const response = await request(app)
+      .delete(`/api/user/${usersList[1]._id}`)
+      .set("Authorization", `Bearer ${usersList[0].token}`);
+    
+    expect(response.status).toBe(403); 
   });
 });

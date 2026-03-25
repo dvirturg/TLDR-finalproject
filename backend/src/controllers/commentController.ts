@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Comment from "../models/commentModel";
 import Post from "../models/postModel";
+import { AuthRequest } from "../types/auth"; 
 
 export const commentController = {
   async getCommentsByPost(req: Request, res: Response) {
@@ -8,7 +9,7 @@ export const commentController = {
     try {
       const comments = await Comment.find({ postId })
         .populate("author", "username profileUrl")
-        .sort({ createdAt: -1 });   
+        .sort({ createdAt: -1 });
 
       return res.json(comments);
     } catch (err) {
@@ -17,13 +18,14 @@ export const commentController = {
     }
   },
 
-  async createComment(req: Request, res: Response) {
+  async createComment(req: AuthRequest, res: Response) {
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-    const author = typeof req.body.author === "string" ? req.body.author.trim() : "";
     const postId = typeof req.body.postId === "string" ? req.body.postId.trim() : "";
+    
+    const author = req.user?.sub;
 
     if (!text || !author || !postId) {
-      res.status(400).json({ message: "text, author and postId are required" });
+      res.status(400).json({ message: "text and postId are required, and you must be logged in" });
       return;
     }
 
@@ -57,16 +59,20 @@ export const commentController = {
     }
   },
 
-  async updateComment(req: Request, res: Response) {
+  async updateComment(req: AuthRequest, res: Response) {
     const commentId = req.params.id;
     try {
+      const comment = await Comment.findById(commentId);
+      if (!comment) return res.status(404).json({ message: "Comment not found" });
+      
+      if (comment.author.toString() !== req.user?.sub) {
+        return res.status(403).json({ message: "You can only update your own comments" });
+      }
+
       const updatedComment = await Comment.findByIdAndUpdate(commentId, req.body, { 
         returnDocument: "after" 
       }).populate("author", "username profileUrl");
 
-      if (!updatedComment) {
-        return res.status(404).json({ message: "Comment not found" });
-      }
       return res.json(updatedComment);
     } catch (err) {
       console.error(err);
@@ -74,13 +80,17 @@ export const commentController = {
     }
   },
 
-  async deleteComment(req: Request, res: Response) {
+  async deleteComment(req: AuthRequest, res: Response) {
     const commentId = req.params.id;
     try {
-      const deletedComment = await Comment.findByIdAndDelete(commentId);
-      if (!deletedComment) {
-        return res.status(404).json({ message: "Comment not found" });
+      const comment = await Comment.findById(commentId);
+      if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+      if (comment.author.toString() !== req.user?.sub) {
+        return res.status(403).json({ message: "You can only delete your own comments" });
       }
+
+      await Comment.findByIdAndDelete(commentId);
       return res.json({ message: "Comment deleted successfully" });
     } catch (err) {
       console.error(err);
