@@ -6,7 +6,10 @@ export const commentController = {
   async getCommentsByPost(req: Request, res: Response) {
     const postId = req.params.postId || req.query.postId;
     try {
-      const comments = await Comment.find({ postId });
+      const comments = await Comment.find({ postId })
+        .populate("author", "username profileUrl")
+        .sort({ createdAt: -1 });   
+
       return res.json(comments);
     } catch (err) {
       console.error(err);
@@ -31,7 +34,9 @@ export const commentController = {
       }
 
       const newComment = await Comment.create({ text, author, postId });
-      return res.status(201).json(newComment);
+      const populatedComment = await Comment.findById(newComment._id).populate("author", "username profileUrl");
+      
+      return res.status(201).json(populatedComment);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error creating comment" });
@@ -41,7 +46,7 @@ export const commentController = {
   async getCommentById(req: Request, res: Response) {
     const commentId = req.params.id;
     try {
-      const comment = await Comment.findById(commentId);
+      const comment = await Comment.findById(commentId).populate("author", "username profileUrl");
       if (!comment) {
         return res.status(404).json({ message: "Comment not found" });
       }
@@ -55,7 +60,10 @@ export const commentController = {
   async updateComment(req: Request, res: Response) {
     const commentId = req.params.id;
     try {
-      const updatedComment = await Comment.findByIdAndUpdate(commentId, req.body, { returnDocument: "after" });
+      const updatedComment = await Comment.findByIdAndUpdate(commentId, req.body, { 
+        returnDocument: "after" 
+      }).populate("author", "username profileUrl");
+
       if (!updatedComment) {
         return res.status(404).json({ message: "Comment not found" });
       }
