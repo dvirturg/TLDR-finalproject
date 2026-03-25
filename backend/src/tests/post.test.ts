@@ -37,7 +37,7 @@ const cleanupUploadedFiles = async () => {
 beforeAll(async () => {
   jest.spyOn(console, "error").mockImplementation(() => {});
   process.env.MONGO_URI = TEST_MONGO_URI;
-  process.env.JWT_SECRET = "secret_key_123"; 
+  process.env.JWT_SECRET = "secret_key"; 
   app = await initApp();
   
   const imageFiles = await fs.readdir(sourceImagesDir);
