@@ -28,13 +28,8 @@ export const deletePost = async (id: string) => {
 };
 
 export const likePost = async (postId: string, userId: string) => {
-  const res = await fetch(`/api/posts/${postId}/like`, {
-    method: 'PUT', // or POST, depending on your route
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId }), // ← this is what the backend reads
-  });
-  if (!res.ok) throw new Error('Failed to like post');
-  return res.json();
+  const response = await axiosInstance.post(`/post/${postId}/like`, { userId });
+  return response.data;
 };
 
 export const getPostsByUserId = async (userId: string) => {
