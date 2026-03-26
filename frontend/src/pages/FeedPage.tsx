@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getPosts } from '../api/postsApi';
-import { PostInter } from '../types';
+import type { PostInter } from '../types';
 import PostCard from '../components/PostCard';
 
 const FeedPage: React.FC = () => {
@@ -14,7 +14,10 @@ const FeedPage: React.FC = () => {
         setLoading(true);
         setError(null);
         const data = await getPosts();
-        setPosts(data.data);
+        console.log('Response data:', data);
+        // Handle both response formats
+        const postsArray = Array.isArray(data) ? data : data.data || [];
+        setPosts(postsArray);
       } catch (err) {
         setError('Failed to fetch posts. Please try again.');
         console.error(err);
@@ -55,8 +58,8 @@ const FeedPage: React.FC = () => {
   return (
     <div className="feed-page">
       <h1>Feed Page</h1>
-      {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+      {posts.map((post: any) => (
+        <PostCard key={post._id} post={post} />
       ))}
     </div>
   );

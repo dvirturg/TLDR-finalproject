@@ -6,6 +6,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<FeedPage />} />
         <Route path="/feed" element={<FeedPage />} />
         {/* Other routes can be added here */}
       </Routes>
@@ -14,3 +15,4 @@ const AppRoutes: React.FC = () => {
 };
 
 export default AppRoutes;
+

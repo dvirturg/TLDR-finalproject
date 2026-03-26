@@ -2,25 +2,25 @@ import axiosInstance from './axiosInstance';
 import type { CommentInter } from '../types';
 
 export const getCommentsByPost = async (postId: string) => {
-  const response = await axiosInstance.get<CommentInter[]>(`/comments/post/${postId}`);
+  const response = await axiosInstance.get<CommentInter[]>(`/comment/post/${postId}`);
   return response.data;
 };
 
 export const createComment = async (data: { text: string; postId: string }) => {
-  const response = await axiosInstance.post<CommentInter>('/comments', data);
+  const response = await axiosInstance.post<CommentInter>('/comment', data);
   return response.data;
 };
 
 export const getCommentById = async (id: string) => {
-  const response = await axiosInstance.get<CommentInter>(`/comments/${id}`);
+  const response = await axiosInstance.get<CommentInter>(`/comment/${id}`);
   return response.data;
 };
 
 export const updateComment = async (id: string, data: { text: string }) => {
-  const response = await axiosInstance.put<CommentInter>(`/comments/${id}`, data);
+  const response = await axiosInstance.put<CommentInter>(`/comment/${id}`, data);
   return response.data;
 };
 
 export const deleteComment = async (id: string) => {
-  await axiosInstance.delete(`/comments/${id}`);
+  await axiosInstance.delete(`/comment/${id}`);
 };
