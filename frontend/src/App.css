@@ -1,1 +1,37 @@
+.feed-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.post-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  padding: 20px;
+}
+
+.skeleton-loader {
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  height: 20px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-loader:nth-child(1) { width: 90%; }
+.skeleton-loader:nth-child(2) { width: 95%; }
+.skeleton-loader:nth-child(3) { width: 80%; }
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.error-message {
+  color: red;
+  margin-bottom: 10px;
+}
 
