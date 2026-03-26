@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getPosts } from '../api/postsApi';
 import { PostInter } from '../types';
+import PostCard from '../components/PostCard';
 
 const FeedPage: React.FC = () => {
   const [posts, setPosts] = useState<PostInter[]>([]);
@@ -55,14 +56,11 @@ const FeedPage: React.FC = () => {
     <div className="feed-page">
       <h1>Feed Page</h1>
       {posts.map((post) => (
-        <div key={post.id} className="post-card">
-          <h2>{post.text}</h2>
-          <p>Likes: {post.likes}</p>
-          <p>Comments: {post.commentCount}</p>
-        </div>
+        <PostCard key={post.id} post={post} />
       ))}
     </div>
   );
 };
 
 export default FeedPage;
+
