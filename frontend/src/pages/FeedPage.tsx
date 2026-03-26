@@ -58,8 +58,8 @@ const FeedPage: React.FC = () => {
   return (
     <div className="feed-page">
       <h1>Feed Page</h1>
-      {posts.map((post: any) => (
-        <PostCard key={post._id} post={post} />
+      {posts.map((post, index) => (
+        <PostCard key={post._id ?? post.id ?? index} post={post} />
       ))}
     </div>
   );

@@ -20,10 +20,12 @@ export interface UserProfileData {
 }
 
 export interface CommentInter {
-  id: string;
+  id?: string;
+  _id?: string;
   text: string;
   author: {
     username: string;
     profileUrl: string;
   };
+  createdAt: string;
 }

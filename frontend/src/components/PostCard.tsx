@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { PostInter } from '../types';
 import { likePost } from '../api/postsApi';
+import CommentSection from './CommentSection';
 
 interface PostCardProps {
   post: PostInter;
@@ -14,17 +15,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   catch { return null; }
 }, []); // only runs once
   const currentUserId = currentUser?.id || currentUser?._id || currentUser?.userId || null;
+  const canLike = !!currentUserId;
   
-  const likes = post.likes as any;
-  const isArray = Array.isArray(likes);
-  const isLikedByMe = currentUserId && isArray && likes.some((u: any) => u === currentUserId || u.toString?.() === currentUserId);
-  const likesCountValue = isArray ? likes.length : likes;
+  const likesArray = Array.isArray(post.likes) ? post.likes : null;
+  const isLikedByMe = !!currentUserId && !!likesArray && likesArray.includes(currentUserId);
+  const likesCountValue = likesArray ? likesArray.length : post.likes;
   
   const [isLiked, setIsLiked] = useState<boolean>(isLikedByMe || false);
   const [likesCount, setLikesCount] = useState<number>(typeof likesCountValue === 'number' ? likesCountValue : 0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showComments, setShowComments] = useState<boolean>(false);
 
   const handleLike = async () => {
+    if (!canLike || isLoading) return;
     // Store original state for rollback
     const originalIsLiked = isLiked;
     const originalLikesCount = likesCount;
@@ -64,20 +67,28 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       </div>
       <div className="post-content">
         <p>{post.text}</p>
-        {post.imageUrl && <img src={post.imageUrl} alt="Post image" className="post-image" />}
+        {post.imageUrl && post.imageUrl.trim() !== '' && (
+          <img src={post.imageUrl} alt="Post image" className="post-image" />
+        )}
       </div>
       <div className="post-actions">
         <button 
           className={`like-button ${isLiked ? 'liked' : ''}`}
           onClick={handleLike}
-          disabled={isLoading}
+          disabled={!canLike || isLoading}
+          title={!canLike ? 'Log in to like posts' : undefined}
         >
           <span className="icon">{isLiked ? '❤️' : '🤍'}</span>
         </button>
-        <button className="comment-button">
+        <button
+          className="comment-button"
+          type="button"
+          onClick={() => setShowComments((prev) => !prev)}
+        >
           <span className="icon">💬</span>
         </button>
       </div>
+      {showComments && post._id && <CommentSection postId={post._id} />}
     </div>
   );
 };

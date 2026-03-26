@@ -109,6 +109,20 @@ body {
   background-color: transparent;
 }
 
+.like-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.like-button:disabled:hover {
+  background-color: transparent;
+}
+
+.like-button:disabled .icon {
+  transform: none;
+  filter: none;
+}
+
 .like-button:hover .icon {
   filter: hue-rotate(-10deg) saturate(1.5) brightness(0.8);
   transform: scale(1.2);
@@ -146,7 +160,7 @@ body {
   border-radius: 4px;
 }
 
-.feed-page button {
+.feed-page button:not(.btn) {
   background-color: transparent;
   color: white;
   border: none;
@@ -158,7 +172,7 @@ body {
   transition: background-color 0.2s ease;
 }
 
-.feed-page button:hover {
+.feed-page button:not(.btn):hover {
   background-color: transparent;
 }
 

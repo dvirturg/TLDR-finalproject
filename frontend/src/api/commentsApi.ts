@@ -6,7 +6,7 @@ export const getCommentsByPost = async (postId: string) => {
   return response.data;
 };
 
-export const createComment = async (data: { text: string; postId: string }) => {
+export const createComment = async (data: { text: string; postId: string; author: string }) => {
   const response = await axiosInstance.post<CommentInter>('/comment', data);
   return response.data;
 };
