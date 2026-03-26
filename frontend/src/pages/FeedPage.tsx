@@ -37,7 +37,6 @@ const FeedPage: React.FC = () => {
   if (loading) {
     return (
       <div className="feed-page">
-        <h1>Feed Page</h1>
         <div className="skeleton-loader"></div>
         <div className="skeleton-loader"></div>
         <div className="skeleton-loader"></div>
@@ -48,7 +47,6 @@ const FeedPage: React.FC = () => {
   if (error) {
     return (
       <div className="feed-page">
-        <h1>Feed Page</h1>
         <p className="error-message">{error}</p>
         <button onClick={handleRetry}>Retry</button>
       </div>
@@ -57,7 +55,6 @@ const FeedPage: React.FC = () => {
 
   return (
     <div className="feed-page">
-      <h1>Feed Page</h1>
       {posts.map((post, index) => (
         <PostCard key={post._id ?? post.id ?? index} post={post} />
       ))}
