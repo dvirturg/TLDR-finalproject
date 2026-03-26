@@ -1,9 +1,74 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import User from '../models/userModel';
 import Post from '../models/postModel';
 import { AuthRequest } from '../types/auth';
 import { toPostDTO, getCommentCountMap } from '../utils/postSerializer';
+import bcrypt from 'bcrypt';
+import { generateToken } from '../utils/authUtils'; 
+
+
+export async function register(req: Request, res: Response): Promise<void> {
+  try {
+    const { username, email, password } = req.body;
+
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    if (existingUser) {
+      res.status(400).json({ message: 'User already exists' });
+      return;
+    }
+
+    const newUser = await User.create({ username, email, password });
+
+    const accessToken = generateToken(newUser._id.toString(), newUser.username);
+
+    res.status(201).json({
+      accessToken,
+      user: {
+        id: String(newUser._id),
+        username: newUser.username,
+        email: newUser.email,
+      },
+    });
+  } catch (error: any) {
+  console.error("Registration Error Details:", error); // זה ידפיס בטרמינל של ה-VS Code את השגיאה
+  res.status(500).json({ 
+    message: 'Error during registration', 
+    error: error.message
+  });  }
+}
+
+export async function login(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(401).json({ message: 'Invalid email or password' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      res.status(401).json({ message: 'Invalid email or password' });
+      return;
+    }
+
+    const accessToken = generateToken(user._id.toString(), user.username);
+
+    res.json({
+      accessToken,
+      user: {
+        id: String(user._id),
+        username: user.username,
+        email: user.email,
+        profileUrl: user.profileUrl,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error during login' });
+  }
+}
 
 export async function getUserById(req: AuthRequest, res: Response): Promise<void> {
   const user = await User.findById(req.params['id']).select('-password -refreshToken');

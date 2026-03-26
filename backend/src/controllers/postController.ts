@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 import { Request, Response } from "express";
 import Post from "../models/postModel";
+import { AuthRequest } from "../types/auth"; 
+import { Types } from "mongoose";
 
 const removeUploadedFile = async (filePath?: string) => {
   if (!filePath) {
@@ -11,14 +13,15 @@ const removeUploadedFile = async (filePath?: string) => {
 };
 
 export const postController = {
-  async createPost(req: Request, res: Response) {
+  async createPost(req: AuthRequest, res: Response) {
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-    const author = typeof req.body.author === "string" ? req.body.author.trim() : "";
+    
+    const author = req.user?.sub; 
     const imageUrl = req.file ? `/public/uploads/posts/${req.file.filename}` : "";
 
     if (!text || !author) {
       await removeUploadedFile(req.file?.path);
-      res.status(400).json({ message: "text and author are required" });
+      res.status(400).json({ message: "text and authentication are required" });
       return;
     }
 
@@ -78,17 +81,20 @@ export const postController = {
     }
   },
 
-  async updatePostById(req: Request, res: Response) {
+  async updatePostById(req: AuthRequest, res: Response) {
     const postId = req.params.id;
     const updateData = req.body;
     try {
+      const post = await Post.findById(postId);
+      if (!post) return res.status(404).json({ message: "Post not found" });
+      if (post.author.toString() !== req.user?.sub) {
+        return res.status(403).json({ message: "You can only update your own posts" });
+      }
+
       const updatedPost = await Post.findByIdAndUpdate(postId, updateData, { 
         returnDocument: "after" 
       }).populate("author", "username profileUrl");
 
-      if (!updatedPost) {
-        return res.status(404).json({ message: "Post not found" });
-      }
       return res.json(updatedPost);
     } catch (err) {
       console.error(err);
@@ -96,13 +102,16 @@ export const postController = {
     }
   },
 
-  async deletePostById(req: Request, res: Response) {
+  async deletePostById(req: AuthRequest, res: Response) {
     const postId = req.params.id;
     try {
-      const deletedPost = await Post.findByIdAndDelete(postId);
-      if (!deletedPost) {
-        return res.status(404).json({ message: "Post not found" });
+      const post = await Post.findById(postId);
+      if (!post) return res.status(404).json({ message: "Post not found" });
+      if (post.author.toString() !== req.user?.sub) {
+        return res.status(403).json({ message: "You can only delete your own posts" });
       }
+
+      await Post.findByIdAndDelete(postId);
       return res.json({ message: "Post deleted successfully" });
     } catch (err) {
       console.error(err);
@@ -110,9 +119,14 @@ export const postController = {
     }
   },
 
-  async likePost(req: Request, res: Response) {
+  async likePost(req: AuthRequest, res: Response) {
     const postId = req.params.id;
-    const userId = req.body.userId;
+    const userId = req.user?.sub; 
+    
+    if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+    }
+
     try {
       const post = await Post.findById(postId);
       if (!post) {
@@ -120,13 +134,15 @@ export const postController = {
       }
 
       const likeIndex = post.likes.findIndex((like: any) => like.toString() === userId);
+      
       if (likeIndex !== -1) {
         post.likes.splice(likeIndex, 1);
         await post.save();
         return res.json({ message: "Post unliked successfully" });
       }
 
-      post.likes.push(userId);
+      post.likes.push(new Types.ObjectId(userId)); 
+      
       await post.save();
       return res.json({ message: "Post liked successfully" });
     } catch (err) {
