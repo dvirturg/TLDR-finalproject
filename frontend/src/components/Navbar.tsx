@@ -1,35 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-
-interface StoredUser {
-  id?: string;
-  _id?: string;
-  username?: string;
-  profileUrl?: string;
-}
+import { useAuth } from '../context/AuthContext';
 
 const Navbar: React.FC = () => {
-  const [user, setUser] = useState<StoredUser>({});
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        setUser({});
-      }
-    }
-  }, []);
-
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    setUser({});
+    logout();
     navigate('/login');
   };
 
-  const avatarFallback = user.username
+  const avatarFallback = user?.username
     ? user.username.charAt(0).toUpperCase()
     : '?';
 
@@ -91,13 +73,13 @@ const Navbar: React.FC = () => {
         </div>
 
         <div className="navbar-user">
-          {user.username && (
+          {user?.username && (
             <span className="navbar-greeting">
               Hello, <strong>{user.username}</strong>
             </span>
           )}
           <div className="navbar-avatar">
-            {user.profileUrl ? (
+            {user?.profileUrl ? (
               <img
                 src={user.profileUrl}
                 alt={user.username ?? 'User'}
