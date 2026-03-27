@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { PostInter } from '../types';
 import { likePost } from '../api/postsApi';
-import CommentSection from './CommentSection';
 
 interface PostCardProps {
   post: PostInter;
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
+  const navigate = useNavigate();
   const currentUser = useMemo(() => {
   const raw = localStorage.getItem('user');
   if (!raw) return null;
@@ -24,7 +25,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isLiked, setIsLiked] = useState<boolean>(isLikedByMe || false);
   const [likesCount, setLikesCount] = useState<number>(typeof likesCountValue === 'number' ? likesCountValue : 0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showComments, setShowComments] = useState<boolean>(false);
+  const commentsCount = typeof post.commentCount === 'number' ? post.commentCount : 0;
 
   const handleLike = async () => {
     if (!canLike || isLoading) return;
@@ -54,6 +55,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     }
   };
 
+  const handleOpenComments = () => {
+    const postId = post._id || post.id;
+    if (!postId) return;
+    navigate(`/post/${postId}/comments`);
+  };
+
   return (
     <div className="post-card">
       <div className="post-header">
@@ -79,16 +86,17 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           title={!canLike ? 'Log in to like posts' : undefined}
         >
           <span className="icon">{isLiked ? '❤️' : '🤍'}</span>
+          <span>{likesCount}</span>
         </button>
         <button
           className="comment-button"
           type="button"
-          onClick={() => setShowComments((prev) => !prev)}
+          onClick={handleOpenComments}
         >
           <span className="icon">💬</span>
+          <span>{commentsCount}</span>
         </button>
       </div>
-      {showComments && post._id && <CommentSection postId={post._id} />}
     </div>
   );
 };

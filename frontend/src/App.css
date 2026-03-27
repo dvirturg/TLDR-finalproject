@@ -37,6 +37,10 @@ body {
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
+.post-summary-card {
+  margin-bottom: 12px;
+}
+
 .post-header {
   display: flex;
   align-items: center;
@@ -160,7 +164,7 @@ body {
   border-radius: 4px;
 }
 
-.feed-page button:not(.btn) {
+.feed-page .retry-button {
   background-color: transparent;
   color: white;
   border: none;
@@ -172,7 +176,7 @@ body {
   transition: background-color 0.2s ease;
 }
 
-.feed-page button:not(.btn):hover {
+.feed-page .retry-button:hover {
   background-color: transparent;
 }
 
