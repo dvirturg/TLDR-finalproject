@@ -78,6 +78,16 @@ const Navbar: React.FC = () => {
             <i className="bi bi-plus-circle-fill navbar-icon" />
             Upload
           </NavLink>
+
+          <NavLink
+            to="/search"
+            className={({ isActive }) =>
+              `navbar-link${isActive ? ' navbar-link--active' : ''}`
+            }
+          >
+            <i className="bi bi-search navbar-icon" />
+            Search
+          </NavLink>
         </div>
 
         <div className="navbar-user">
