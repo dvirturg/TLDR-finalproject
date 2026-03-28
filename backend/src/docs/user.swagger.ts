@@ -16,6 +16,21 @@ export const userSchemas = {
     },
     required: ["_id", "username", "email"],
   },
+  AuthResponse: {
+    type: "object",
+    properties: {
+      accessToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+      user: { $ref: "#/components/schemas/User" },
+    },
+    required: ["accessToken", "user"],
+  },
+  GoogleLoginRequest: {
+    type: "object",
+    properties: {
+      idToken: { type: "string", example: "google-id-token" },
+    },
+    required: ["idToken"],
+  },
   UpdateUserMultipart: {
     type: "object",
     properties: {
@@ -41,6 +56,34 @@ export const userSchemas = {
 } as const;
 
 export const userPaths = {
+  "/api/user/google-login": {
+    post: {
+      tags: ["User"],
+      summary: "Authenticate with Google ID token",
+      description: "Verifies a Google ID token and returns the app JWT plus user details.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GoogleLoginRequest" },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Google login succeeded",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AuthResponse" },
+            },
+          },
+        },
+        "400": { description: "Missing Google ID token" },
+        "401": { description: "Invalid Google credentials" },
+        "500": { description: "Google authentication is not configured" },
+      },
+    },
+  },
   "/api/user/search": {
     get: {
       tags: ["User"],
