@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
 import FeedPage from './pages/FeedPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
@@ -12,14 +14,17 @@ const AppRoutes: React.FC = () => {
   return (
     <Router>
       <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Navigate to="/feed" replace />} />
-          <Route path="/feed" element={<FeedPage />} />
-          <Route path="/post/:postId/comments" element={<PostCommentsPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/upload" element={<UploadPage />} />
-          <Route path="/search" element={<SearchPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route index element={<Navigate to="/feed" replace />} />
+            <Route path="/feed" element={<FeedPage />} />
+            <Route path="/post/:postId/comments" element={<PostCommentsPage />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/upload" element={<UploadPage />} />
+            <Route path="/search" element={<SearchPage />} />
+          </Route>
         </Route>
       </Routes>
     </Router>
