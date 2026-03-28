@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PostInter } from '../types';
 import { likePost, updatePost, deletePost } from '../api/postsApi';
+import axiosInstance from '../api/axiosInstance';
 
 interface PostCardProps {
   post: PostInter;
@@ -34,10 +35,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner, onDelete, onPostUpda
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(post.text);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -79,25 +84,60 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner, onDelete, onPostUpda
 
   const handleEditOpen = () => {
     setEditText(post.text);
+    setEditImageFile(null);
+    setEditImagePreview(post.imageUrl || null);
+    setEditError(null);
     setShowMenu(false);
     setIsEditing(true);
   };
 
   const handleEditCancel = () => {
     setIsEditing(false);
-    setEditText(post.text);
+    setEditImageFile(null);
+    setEditImagePreview(null);
+    setEditError(null);
+  };
+
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setEditImageFile(file);
+    setEditImagePreview(file ? URL.createObjectURL(file) : null);
+  };
+
+  const handleEditRemoveImage = () => {
+    setEditImageFile(null);
+    setEditImagePreview(null);
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
 
   const handleEditSave = async () => {
     const postId = post._id || post.id;
     if (!postId || !editText.trim()) return;
     setIsSaving(true);
+    setEditError(null);
+
+    const imageChanged = editImageFile !== null || (editImagePreview === null && !!post.imageUrl);
+
     try {
-      const updated = await updatePost(postId, { text: editText.trim() });
+      let updated: PostInter;
+      if (imageChanged) {
+        const formData = new FormData();
+        formData.append('text', editText.trim());
+        if (editImageFile) formData.append('image', editImageFile);
+        const res = await axiosInstance.put<PostInter>(`/post/${postId}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        updated = res.data;
+      } else {
+        updated = await updatePost(postId, { text: editText.trim() });
+      }
       onPostUpdated?.(updated);
       setIsEditing(false);
+      setEditImageFile(null);
+      setEditImagePreview(null);
     } catch (err) {
       console.error('Failed to update post:', err);
+      setEditError('Failed to save changes. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -153,22 +193,66 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner, onDelete, onPostUpda
 
       {isEditing ? (
         <div className="post-edit-area">
-          <textarea
-            className="post-edit-textarea"
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            disabled={isSaving}
-          />
-          <div className="post-edit-actions">
+          <div className="upload-field">
+            <label className="upload-label">What's on your mind?</label>
+            <textarea
+              className="upload-textarea"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={4}
+              disabled={isSaving}
+            />
+          </div>
+
+          <div className="upload-field">
+            <label className="upload-label">Image (optional)</label>
+            <input
+              ref={editFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              style={{ display: 'none' }}
+              onChange={handleEditFileChange}
+              disabled={isSaving}
+            />
+            {!editImagePreview ? (
+              <button
+                type="button"
+                className="upload-zone"
+                onClick={() => editFileInputRef.current?.click()}
+                disabled={isSaving}
+              >
+                <i className="bi bi-image upload-zone-icon" />
+                <span>Click to add an image</span>
+                <span className="upload-zone-hint">JPEG, PNG, GIF, WebP — max 5 MB</span>
+              </button>
+            ) : (
+              <div className="upload-preview">
+                <img src={editImagePreview} alt="Preview" className="upload-preview-img" />
+                <button
+                  type="button"
+                  className="upload-remove-btn"
+                  onClick={handleEditRemoveImage}
+                  disabled={isSaving}
+                  title="Remove image"
+                >
+                  <i className="bi bi-x-circle-fill" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {editError && <p className="error-message">{editError}</p>}
+
+          <div className="profile-edit-actions">
             <button
-              className="post-edit-save-btn"
+              className="profile-save-btn"
               onClick={handleEditSave}
               disabled={isSaving || !editText.trim()}
             >
               {isSaving ? 'Saving…' : 'Save'}
             </button>
             <button
-              className="post-edit-cancel-btn"
+              className="profile-cancel-btn"
               onClick={handleEditCancel}
               disabled={isSaving}
             >
