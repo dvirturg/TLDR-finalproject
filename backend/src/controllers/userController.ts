@@ -4,8 +4,12 @@ import User from '../models/userModel';
 import Post from '../models/postModel';
 import { AuthRequest } from '../types/auth';
 import { toPostDTO, getCommentCountMap } from '../utils/postSerializer';
-import bcrypt from 'bcrypt';
-import { generateToken } from '../utils/authUtils'; 
+import {
+  authenticateGoogleUser,
+  authenticateLocalUser,
+  buildAuthResponse,
+  registerLocalUser,
+} from '../services/authService';
 
 
 export async function register(req: Request, res: Response): Promise<void> {
@@ -18,18 +22,9 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const newUser = await User.create({ username, email, password });
+    const newUser = await registerLocalUser(username, email, password);
 
-    const accessToken = generateToken(newUser._id.toString(), newUser.username);
-
-    res.status(201).json({
-      accessToken,
-      user: {
-        id: String(newUser._id),
-        username: newUser.username,
-        email: newUser.email,
-      },
-    });
+    res.status(201).json(buildAuthResponse(newUser));
   } catch (error: any) {
   console.error("Registration Error Details:", error); // זה ידפיס בטרמינל של ה-VS Code את השגיאה
   res.status(500).json({ 
@@ -42,36 +37,46 @@ export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await authenticateLocalUser(email, password);
     if (!user) {
       res.status(401).json({ message: 'Invalid email or password' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      res.status(401).json({ message: 'Invalid email or password' });
-      return;
-    }
-
-    const accessToken = generateToken(user._id.toString(), user.username);
-
-    res.json({
-      accessToken,
-      user: {
-        id: String(user._id),
-        username: user.username,
-        email: user.email,
-        profileUrl: user.profileUrl,
-      },
-    });
+    res.json(buildAuthResponse(user));
   } catch (error) {
     res.status(500).json({ message: 'Error during login' });
   }
 }
 
+export async function googleLogin(req: Request, res: Response): Promise<void> {
+  try {
+    const { idToken } = req.body as { idToken?: string };
+
+    if (!idToken) {
+      res.status(400).json({ message: 'Google idToken is required' });
+      return;
+    }
+
+    const user = await authenticateGoogleUser(idToken);
+    if (!user) {
+      res.status(401).json({ message: 'Invalid Google credentials' });
+      return;
+    }
+
+    res.json(buildAuthResponse(user));
+  } catch (error) {
+    if (error instanceof Error && error.message === 'GOOGLE_CLIENT_ID is not defined') {
+      res.status(500).json({ message: 'Google authentication is not configured' });
+      return;
+    }
+
+    res.status(401).json({ message: 'Invalid Google credentials' });
+  }
+}
+
 export async function getUserById(req: AuthRequest, res: Response): Promise<void> {
-  const user = await User.findById(req.params['id']).select('-password -refreshToken');
+  const user = await User.findById(req.params['id']).select('-password -refreshTokens');
   if (!user) {
     res.status(404).json({ message: 'User not found' });
     return;
