@@ -32,16 +32,6 @@ const Navbar: React.FC = () => {
           </NavLink>
 
           <NavLink
-            to="/chat"
-            className={({ isActive }) =>
-              `navbar-link${isActive ? ' navbar-link--active' : ''}`
-            }
-          >
-            <i className="bi bi-chat-dots-fill navbar-icon" />
-            Chat
-          </NavLink>
-
-          <NavLink
             to="/profile"
             className={({ isActive }) =>
               `navbar-link${isActive ? ' navbar-link--active' : ''}`
