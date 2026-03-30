@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { login as loginApi, register as registerApi } from '../api/authApi';
+import { updateUser } from '../api/usersApi';
 
 interface User {
   id: string;
@@ -17,6 +18,7 @@ interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (data: FormData) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -66,8 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => persist(null, null);
 
+  const updateProfile = async (data: FormData) => {
+    if (!state.user) return;
+    const updated = await updateUser(state.user.id, data);
+    persist({ ...state.user, username: updated.username, profileUrl: updated.profileUrl }, state.accessToken);
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

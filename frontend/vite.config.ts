@@ -54,6 +54,12 @@ function terminalLoggerPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), terminalLoggerPlugin()],
+  server: {
+    proxy: {
+      '/uploads': 'http://localhost:5000',
+      '/public':  'http://localhost:5000',
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
