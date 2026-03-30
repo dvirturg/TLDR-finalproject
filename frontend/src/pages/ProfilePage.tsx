@@ -65,6 +65,16 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handlePostDelete = (id: string) => {
+    setPosts(prev => prev.filter(p => (p._id || p.id) !== id));
+  };
+
+  const handlePostUpdated = (updatedPost: PostInter) => {
+    setPosts(prev =>
+      prev.map(p => (p._id || p.id) === (updatedPost._id || updatedPost.id) ? updatedPost : p)
+    );
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
@@ -172,7 +182,15 @@ const ProfilePage: React.FC = () => {
         {posts.length === 0 ? (
           <p className="profile-no-posts">No posts yet.</p>
         ) : (
-          posts.map((post) => <PostCard key={post._id ?? post.id} post={post} />)
+          posts.map((post) => (
+            <PostCard
+              key={post._id ?? post.id}
+              post={post}
+              isOwner={true}
+              onDelete={handlePostDelete}
+              onPostUpdated={handlePostUpdated}
+            />
+          ))
         )}
       </div>
     </div>
