@@ -76,6 +76,19 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner, onDelete, onPostUpda
     }
   };
 
+  const handleAuthorClick = () => {
+    const authorId =
+      (post.author as PostInter['author'] & { _id?: string; userId?: string })?._id ||
+      post.author?.id ||
+      (post.author as PostInter['author'] & { _id?: string; userId?: string })?.userId;
+    if (!authorId) return;
+    if (authorId === currentUserId) {
+      navigate('/profile');
+    } else {
+      navigate(`/profile/${authorId}`);
+    }
+  };
+
   const handleOpenComments = () => {
     const postId = post._id || post.id;
     if (!postId) return;
@@ -163,8 +176,20 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner, onDelete, onPostUpda
       <div className="post-header">
         {post.author && (
           <>
-            <img src={post.author.profileUrl} alt={post.author.username} className="profile-pic" />
-            <span className="username">{post.author.username}</span>
+            <img
+              src={post.author.profileUrl}
+              alt={post.author.username}
+              className="profile-pic"
+              onClick={handleAuthorClick}
+              style={{ cursor: 'pointer' }}
+            />
+            <span
+              className="username"
+              onClick={handleAuthorClick}
+              style={{ cursor: 'pointer' }}
+            >
+              {post.author.username}
+            </span>
           </>
         )}
         {!post.author && <span className="username">Unknown Author</span>}

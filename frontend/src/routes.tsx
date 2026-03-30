@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import FeedPage from './pages/FeedPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
+import UserProfilePage from './pages/UserProfilePage';
 import UploadPage from './pages/UploadPage';
 import PostCommentsPage from './pages/PostCommentsPage';
 import SearchPage from './pages/SearchPage';
@@ -22,6 +23,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/post/:postId/comments" element={<PostCommentsPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/:userId" element={<UserProfilePage />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/search" element={<SearchPage />} />
           </Route>
