@@ -1,11 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import { Request, Response } from "express";
-import { Types } from "mongoose";
 import Post from "../models/postModel";
+import { Types } from "mongoose";
+import { AuthRequest } from "../types/auth";
 import searchService from "../services/searchService";
 import llmService from "../services/llmService";
-import { AuthRequest } from "../types/auth";
 import { getCommentCountMap, toPostDTO } from "../utils/postSerializer";
 
 const removeUploadedFile = async (filePath?: string) => {
