@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { login as loginApi, register as registerApi } from '../api/authApi';
+import { googleLogin as googleLoginApi, login as loginApi, register as registerApi } from '../api/authApi';
 import { updateUser } from '../api/usersApi';
 
 interface User {
@@ -19,6 +19,7 @@ interface AuthContextValue extends AuthState {
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: FormData) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -74,8 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     persist({ ...state.user, username: updated.username, profileUrl: updated.profileUrl }, state.accessToken);
   };
 
+  const loginWithGoogle = async (idToken: string) => {
+    const { accessToken, user } = await googleLoginApi(idToken);
+    persist(user, accessToken);
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile, loginWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );
