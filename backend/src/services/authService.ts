@@ -115,7 +115,7 @@ export const registerLocalUser = async (username: string, email: string, passwor
 
 export const authenticateGoogleUser = async (idToken: string) => {
   const profile = await verifyGoogleIdToken(idToken);
-
+  
   if (!profile.email || !profile.emailVerified) {
     return null;
   }
