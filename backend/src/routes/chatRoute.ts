@@ -6,5 +6,5 @@ const router = Router();
 
 router.get("/conversations",authenticate, chatController.getConversations);
 router.get("/:userId", authenticate, chatController.getChatHistory);
-router.post("/message/:id/read", authenticate, chatController.markAsRead);
+router.post("/message/:messageId/read", authenticate, chatController.markAsRead);
 export default router;

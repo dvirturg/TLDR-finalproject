@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { io, type Socket } from 'socket.io-client';
+import { getChatHistory } from '../api/chatApi';
 import { getUserById } from '../api/usersApi';
+import { SOCKET_BASE_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import type { UserProfileData } from '../types';
 
@@ -11,12 +14,16 @@ interface ChatMessage {
   createdAt: string;
 }
 
-const STORAGE_PREFIX = 'direct-chat';
+interface ReceiveMessagePayload {
+  _id: string;
+  senderId: string;
+  receiverId: string;
+  message: string;
+  timestamp: string | Date;
+}
 
-const buildConversationKey = (firstUserId: string, secondUserId: string) => {
-  const [idA, idB] = [firstUserId, secondUserId].sort();
-  return `${STORAGE_PREFIX}:${idA}:${idB}`;
-};
+const sortByCreatedAt = (items: ChatMessage[]): ChatMessage[] =>
+  [...items].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
 const ChatPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,70 +35,44 @@ const ChatPage: React.FC = () => {
   const hasTargetUser = Boolean(targetUserId);
   const canStartChat = hasCurrentUser && hasTargetUser;
   const isSelfChat = canStartChat && currentUserId === targetUserId;
-  const conversationKey = useMemo(() => {
-    if (!canStartChat || isSelfChat) {
-      return '';
-    }
-    return buildConversationKey(currentUserId, targetUserId);
-  }, [canStartChat, currentUserId, isSelfChat, targetUserId]);
 
   const [targetUser, setTargetUser] = useState<UserProfileData | null>(null);
   const [loadingTarget, setLoadingTarget] = useState(false);
   const [targetError, setTargetError] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [socketError, setSocketError] = useState('');
+  const socketRef = useRef<Socket | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const loadMessages = async () => {
-      await Promise.resolve();
-      if (!active) {
-        return;
-      }
-      if (!canStartChat || isSelfChat || !conversationKey) {
-        setMessages([]);
-        return;
-      }
-      const rawMessages = localStorage.getItem(conversationKey);
-      if (!rawMessages) {
-        setMessages([]);
-        return;
-      }
-      try {
-        const parsedMessages = JSON.parse(rawMessages) as ChatMessage[];
-        if (!Array.isArray(parsedMessages)) {
-          setMessages([]);
-          return;
-        }
-        const safeMessages = parsedMessages.filter(
-          (message) =>
-            typeof message?.id === 'string' &&
-            typeof message?.senderId === 'string' &&
-            typeof message?.text === 'string' &&
-            typeof message?.createdAt === 'string',
-        );
-        setMessages(safeMessages);
-      } catch {
-        setMessages([]);
-      }
-    };
-    loadMessages();
-    return () => {
-      active = false;
-    };
-  }, [canStartChat, conversationKey, isSelfChat]);
-
-  useEffect(() => {
-    if (!conversationKey) {
+  const appendIncomingMessage = useCallback((payload: ReceiveMessagePayload, partnerId: string) => {
+    const isThisPair =
+      (payload.senderId === currentUserId && payload.receiverId === partnerId) ||
+      (payload.senderId === partnerId && payload.receiverId === currentUserId);
+    if (!isThisPair) {
       return;
     }
-    localStorage.setItem(conversationKey, JSON.stringify(messages));
-  }, [conversationKey, messages]);
+    const next: ChatMessage = {
+      id: payload._id,
+      senderId: payload.senderId,
+      text: payload.message,
+      createdAt:
+        payload.timestamp instanceof Date
+          ? payload.timestamp.toISOString()
+          : new Date(payload.timestamp).toISOString(),
+    };
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === next.id)) {
+        return prev;
+      }
+      return sortByCreatedAt([...prev, next]);
+    });
+  }, [currentUserId]);
 
   useEffect(() => {
     let active = true;
     const loadTargetUser = async () => {
-      await Promise.resolve();
       if (!active) {
         return;
       }
@@ -133,18 +114,97 @@ const ChatPage: React.FC = () => {
     };
   }, [canStartChat, isSelfChat, targetUserId]);
 
+  useEffect(() => {
+    let active = true;
+    const loadHistory = async () => {
+      if (!canStartChat || isSelfChat || !targetUserId) {
+        setMessages([]);
+        setHistoryError('');
+        return;
+      }
+      setLoadingHistory(true);
+      setHistoryError('');
+      try {
+        const rows = await getChatHistory(targetUserId);
+        if (!active) {
+          return;
+        }
+        setMessages(
+          sortByCreatedAt(
+            rows.map((row) => ({
+              id: row.id,
+              senderId: row.senderId,
+              text: row.text,
+              createdAt: row.createdAt,
+            })),
+          ),
+        );
+      } catch {
+        if (active) {
+          setMessages([]);
+          setHistoryError('Could not load chat history. Try again.');
+        }
+      } finally {
+        if (active) {
+          setLoadingHistory(false);
+        }
+      }
+    };
+    loadHistory();
+    return () => {
+      active = false;
+    };
+  }, [canStartChat, isSelfChat, targetUserId]);
+
+  useEffect(() => {
+    if (!currentUserId || !targetUserId || isSelfChat) {
+      return;
+    }
+
+    const socket = io(SOCKET_BASE_URL, {
+      transports: ['websocket', 'polling'],
+    });
+    socketRef.current = socket;
+    setSocketError('');
+
+    socket.on('connect', () => {
+      socket.emit('join', currentUserId);
+    });
+
+    socket.on('receive_message', (payload: ReceiveMessagePayload) => {
+      appendIncomingMessage(payload, targetUserId);
+    });
+
+    socket.on('error', (payload: { message?: string }) => {
+      setSocketError(payload?.message ?? 'Chat connection error.');
+    });
+
+    socket.on('connect_error', () => {
+      setSocketError('Could not connect to chat server.');
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [appendIncomingMessage, currentUserId, isSelfChat, targetUserId]);
+
   const sendMessage = () => {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || !currentUserId || !targetUserId || isSelfChat) {
       return;
     }
-    const nextMessage: ChatMessage = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    const socket = socketRef.current;
+    if (!socket?.connected) {
+      setSocketError('Not connected. Wait a moment or refresh.');
+      return;
+    }
+    setSocketError('');
+    socket.emit('send_message', {
       senderId: currentUserId,
-      text: trimmedDraft,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((existingMessages) => [...existingMessages, nextMessage]);
+      receiverId: targetUserId,
+      message: trimmedDraft,
+    });
     setDraft('');
   };
 
@@ -174,6 +234,12 @@ const ChatPage: React.FC = () => {
     }
     if (loadingTarget) {
       return <p className="chat-empty-text">Loading conversation...</p>;
+    }
+    if (historyError) {
+      return <p className="error-message">{historyError}</p>;
+    }
+    if (loadingHistory) {
+      return <p className="chat-empty-text">Loading messages...</p>;
     }
     if (messages.length === 0) {
       return <p className="chat-empty-text">No messages yet. Say hi to start the conversation.</p>;
@@ -207,6 +273,7 @@ const ChatPage: React.FC = () => {
         </div>
 
         <div className="chat-body">{renderState()}</div>
+        {socketError ? <p className="error-message">{socketError}</p> : null}
 
         <div className="chat-input-row">
           <input
@@ -216,12 +283,27 @@ const ChatPage: React.FC = () => {
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleSendOnEnter}
             placeholder="Type your message..."
-            disabled={!canStartChat || Boolean(targetError) || loadingTarget || isSelfChat}
+            disabled={
+              !canStartChat ||
+              Boolean(targetError) ||
+              loadingTarget ||
+              loadingHistory ||
+              Boolean(historyError) ||
+              isSelfChat
+            }
           />
           <button
             className="chat-send-btn"
             onClick={sendMessage}
-            disabled={!draft.trim() || !canStartChat || Boolean(targetError) || loadingTarget || isSelfChat}
+            disabled={
+              !draft.trim() ||
+              !canStartChat ||
+              Boolean(targetError) ||
+              loadingTarget ||
+              loadingHistory ||
+              Boolean(historyError) ||
+              isSelfChat
+            }
           >
             Send
           </button>

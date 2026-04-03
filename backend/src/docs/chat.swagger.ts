@@ -88,7 +88,7 @@ export const chatPaths = {
       },
     },
   },
-  "/api/chat/message/{id}/read": {
+  "/api/chat/message/{messageId}/read": {
     post: {
       tags: ["Chat"],
       summary: "Mark a chat message as read",
@@ -96,7 +96,7 @@ export const chatPaths = {
       parameters: [
         {
           in: "path",
-          name: "id",
+          name: "messageId",
           required: true,
           schema: { type: "string" },
           description: "Message id",
