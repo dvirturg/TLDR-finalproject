@@ -4,7 +4,7 @@ import initApp from "../index";
 import Comment from "../models/commentModel";
 import Post from "../models/postModel";
 import User from "../models/userModel"; 
-import { generateToken } from "../utils/authUtils";
+import { generateTokens } from "../utils/authUtils";
 
 const TEST_MONGO_URI = "mongodb://localhost:27017/test_db_comments";
 
@@ -21,6 +21,7 @@ beforeAll(async () => {
   jest.spyOn(console, "error").mockImplementation(() => {});
   process.env.MONGO_URI = TEST_MONGO_URI;
   process.env.JWT_SECRET = "secret_key";
+  process.env.JWT_REFRESH_SECRET = "refresh_secret_key";
   app = await initApp();
 });
 
@@ -41,10 +42,11 @@ describe("Comment API", () => {
     const user2 = await User.create({ username: "User2", email: "u2@t.com", password: "123" });
     
     userIds = [user1._id.toString(), user2._id.toString()];
-    tokens = [
-      generateToken(userIds[0], user1.username),
-      generateToken(userIds[1], user2.username)
-    ];
+    
+    const tokens1 = generateTokens(userIds[0], user1.username);
+    const tokens2 = generateTokens(userIds[1], user2.username);
+    
+    tokens = [tokens1.accessToken, tokens2.accessToken];
 
     const postRes = await request(app)
       .post("/api/post")

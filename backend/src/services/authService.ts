@@ -3,13 +3,6 @@ import { OAuth2Client, TokenPayload } from "google-auth-library";
 import User from "../models/userModel";
 import { generateTokens } from "../utils/authUtils";
 
-type AuthenticatedUser = {
-  _id: { toString(): string };
-  username: string;
-  email: string;
-  profileUrl?: string;
-};
-
 type GoogleProfile = {
   googleId: string;
   email: string;
@@ -36,22 +29,16 @@ const slugifyUsername = (value: string): string => {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "")
     .trim();
-
   return normalized || "user";
 };
 
 const buildUniqueUsername = async (seed: string): Promise<string> => {
   const base = slugifyUsername(seed);
-
   for (let suffix = 0; suffix < 1000; suffix += 1) {
     const candidate = suffix === 0 ? base : `${base}${suffix}`;
     const existingUser = await User.exists({ username: candidate });
-
-    if (!existingUser) {
-      return candidate;
-    }
+    if (!existingUser) return candidate;
   }
-
   return `${base}${Date.now()}`;
 };
 
@@ -63,8 +50,13 @@ const mapGooglePayload = (payload: TokenPayload): GoogleProfile => ({
   picture: payload.picture,
 });
 
-export const buildAuthResponse = (user: AuthenticatedUser): AuthResponse => {
+export const buildAuthResponse = (user: any): AuthResponse => {
   const { accessToken, refreshToken } = generateTokens(user._id.toString(), user.username);
+  const profileUrl = 
+    user.profileUrl || 
+    user.picture || 
+    (user._doc && (user._doc.profileUrl || user._doc.picture)) || 
+    "";
 
   return {
     accessToken,
@@ -73,16 +65,14 @@ export const buildAuthResponse = (user: AuthenticatedUser): AuthResponse => {
       id: user._id.toString(),
       username: user.username,
       email: user.email,
-      profileUrl: user.profileUrl,
+      profileUrl: profileUrl,
     },
   };
 };
 
 export const verifyGoogleIdToken = async (idToken: string): Promise<GoogleProfile> => {
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
-  if (!googleClientId) {
-    throw new Error("GOOGLE_CLIENT_ID is not defined");
-  }
+  if (!googleClientId) throw new Error("GOOGLE_CLIENT_ID is not defined");
 
   const ticket = await googleClient.verifyIdToken({
     idToken,
@@ -90,23 +80,17 @@ export const verifyGoogleIdToken = async (idToken: string): Promise<GoogleProfil
   });
 
   const payload = ticket.getPayload();
-  if (!payload) {
-    throw new Error("Missing Google token payload");
-  }
+  if (!payload) throw new Error("Missing Google token payload");
 
   return mapGooglePayload(payload);
 };
 
 export const authenticateLocalUser = async (email: string, password: string) => {
   const user = await User.findOne({ email });
-  if (!user || !user.password) {
-    return null;
-  }
+  if (!user || !user.password) return null;
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return null;
-  }
+  if (!isMatch) return null;
 
   return user;
 };
@@ -118,18 +102,12 @@ export const registerLocalUser = async (username: string, email: string, passwor
 export const authenticateGoogleUser = async (idToken: string) => {
   const profile = await verifyGoogleIdToken(idToken);
   
-  if (!profile.email || !profile.emailVerified) {
-    return null;
-  }
+  if (!profile.email || !profile.emailVerified) return null;
 
   const existingUser = await User.findOne({ email: profile.email });
   if (existingUser) {
-    if (!existingUser.googleId) {
-      existingUser.googleId = profile.googleId;
-    }
-    if (existingUser.authProvider !== "google") {
-      existingUser.authProvider = "google";
-    }
+    if (!existingUser.googleId) existingUser.googleId = profile.googleId;
+    if (existingUser.authProvider !== "google") existingUser.authProvider = "google";
     await existingUser.save();
     return existingUser;
   }
