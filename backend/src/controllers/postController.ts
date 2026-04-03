@@ -117,14 +117,27 @@ export const postController = {
 
   async updatePostById(req: AuthRequest, res: Response) {
     const postId = req.params.id;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+    
     try {
       const post = await Post.findById(postId);
       if (!post) {
+        if (req.file) await removeUploadedFile(req.file.path);
         return res.status(404).json({ message: "Post not found" });
       }
+
       if (post.author.toString() !== req.user?.sub) {
+        if (req.file) await removeUploadedFile(req.file.path);
         return res.status(403).json({ message: "You can only update your own posts" });
+      }
+
+      if (req.file) {
+        const oldImagePath = post.imageUrl;
+        updateData.imageUrl = `/public/uploads/posts/${req.file.filename}`;
+        if (oldImagePath && oldImagePath.startsWith("/public/")) {
+          const absoluteOldPath = path.join(__dirname, "../../", oldImagePath);
+          await fs.unlink(absoluteOldPath).catch(() => undefined);
+        }
       }
 
       const updatedPost = await Post.findByIdAndUpdate(postId, updateData, {
@@ -133,6 +146,7 @@ export const postController = {
 
       return res.json(updatedPost);
     } catch (err) {
+      if (req.file) await removeUploadedFile(req.file.path);
       console.error(err);
       return res.status(500).json({ message: "Error updating post" });
     }
