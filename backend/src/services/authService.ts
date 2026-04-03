@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import { OAuth2Client, TokenPayload } from "google-auth-library";
 import User from "../models/userModel";
-import { generateToken } from "../utils/authUtils";
+import { generateTokens } from "../utils/authUtils";
 
 type AuthenticatedUser = {
   _id: { toString(): string };
@@ -20,6 +20,7 @@ type GoogleProfile = {
 
 type AuthResponse = {
   accessToken: string;
+  refreshToken: string;
   user: {
     id: string;
     username: string;
@@ -63,10 +64,11 @@ const mapGooglePayload = (payload: TokenPayload): GoogleProfile => ({
 });
 
 export const buildAuthResponse = (user: AuthenticatedUser): AuthResponse => {
-  const accessToken = generateToken(user._id.toString(), user.username);
+  const { accessToken, refreshToken } = generateTokens(user._id.toString(), user.username);
 
   return {
     accessToken,
+    refreshToken,
     user: {
       id: user._id.toString(),
       username: user.username,
