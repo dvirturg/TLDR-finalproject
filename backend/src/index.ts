@@ -5,6 +5,7 @@ import { swaggerUi, swaggerSpec } from "./swagger";
 import dotenv from "dotenv";
 import postsRoute from "./routes/postsRoute";
 import commentRoute from "./routes/commentRoute";
+import chatRoute from "./routes/chatRoute";
 import userRoute from "./routes/usersRoute";
 
 dotenv.config({ path: ".env.dev" });
@@ -33,6 +34,7 @@ app.use((_req, res, next) => {
 // Routes
 app.use("/api/post", postsRoute);
 app.use("/api/comment", commentRoute);
+app.use("/api/chat", chatRoute);
 app.use("/api/user", userRoute);
 
 
@@ -67,7 +69,7 @@ const initApp = () => {
 };
 
 // Start the app and handle errors
-
+/*
 if (process.env.NODE_ENV !== "test") {
   initApp()
     .then((app) => {
@@ -81,5 +83,5 @@ if (process.env.NODE_ENV !== "test") {
       process.exit(1);
     });
 }
-
+*/
 export default initApp;
