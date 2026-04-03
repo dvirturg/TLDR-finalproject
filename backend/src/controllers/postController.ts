@@ -55,15 +55,32 @@ export const postController = {
 
   async getAllPosts(req: Request, res: Response) {
     try {
-      let query = Post.find();
-      if (Object.keys(req.query).length > 0) {
-        query = Post.find(req.query);
-      }
-      const posts = await query
-        .populate("author", "username profileUrl")
-        .sort({ createdAt: -1 });
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 10;
+      const skip = (page - 1) * limit;
 
-      return res.json(posts);
+      const { page: _p, ...filters } = req.query;
+
+      const posts = await Post.find(filters)
+        .populate("author", "username profileUrl")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      const totalPosts = await Post.countDocuments(filters);
+      
+      const currentUserId = (req as AuthRequest).user?.sub;
+      const safePosts = await serializePosts(posts, currentUserId);
+
+      return res.json({
+        posts: safePosts,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts,
+          hasNextPage: page * limit < totalPosts
+        }
+      });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error retrieving posts" });
