@@ -24,6 +24,23 @@ export const userSchemas = {
     },
     required: ["accessToken", "user"],
   },
+  RegisterRequest: {
+    type: "object",
+    properties: {
+      username: { type: "string", example: "NoaTest" },
+      email: { type: "string", example: "noa@test.com" },
+      password: { type: "string", example: "password123" },
+    },
+    required: ["username", "email", "password"],
+  },
+  LoginRequest: {
+    type: "object",
+    properties: {
+      email: { type: "string", example: "noa@test.com" },
+      password: { type: "string", example: "password123" },
+    },
+    required: ["email", "password"],
+  },
   GoogleLoginRequest: {
     type: "object",
     properties: {
@@ -56,6 +73,58 @@ export const userSchemas = {
 } as const;
 
 export const userPaths = {
+  "/api/user/register": {
+    post: {
+      tags: ["User"],
+      summary: "Register a local user",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/RegisterRequest" },
+          },
+        },
+      },
+      responses: {
+        "201": {
+          description: "User registered successfully",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AuthResponse" },
+            },
+          },
+        },
+        "400": { description: "User already exists or invalid payload" },
+        "500": { description: "Error during registration" },
+      },
+    },
+  },
+  "/api/user/login": {
+    post: {
+      tags: ["User"],
+      summary: "Login with email and password",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/LoginRequest" },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Login succeeded",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AuthResponse" },
+            },
+          },
+        },
+        "401": { description: "Invalid email or password" },
+        "500": { description: "Error during login" },
+      },
+    },
+  },
   "/api/user/google-login": {
     post: {
       tags: ["User"],

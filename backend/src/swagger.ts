@@ -3,6 +3,7 @@ import swaggerUi from "swagger-ui-express";
 import { postPaths, postSchemas, postTags } from "./docs/post.swagger";
 import { commentPaths, commentSchemas, commentTags } from "./docs/comment.swagger";
 import { userSchemas, userPaths, userTags } from "./docs/user.swagger";
+import { chatPaths, chatSchemas, chatTags } from "./docs/chat.swagger";
 
 const swaggerSpec = swaggerJsdoc({
   definition: {
@@ -28,6 +29,7 @@ const swaggerSpec = swaggerJsdoc({
         },
       },
       schemas: {
+        ...chatSchemas,
         ...commentSchemas,
         ...postSchemas,
         ...userSchemas, 
@@ -39,11 +41,13 @@ const swaggerSpec = swaggerJsdoc({
       },
     ],
     paths: {
+      ...chatPaths,
       ...commentPaths,
       ...postPaths,
       ...userPaths, 
     },
     tags: [
+      ...chatTags,
       ...commentTags, 
       ...postTags, 
       ...userTags 

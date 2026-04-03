@@ -232,6 +232,46 @@ export const postPaths = {
       },
     },
   },
+  "/api/post/user/{userId}": {
+    get: {
+      tags: ["Post"],
+      summary: "Get posts by user id",
+      parameters: [
+        {
+          in: "path",
+          name: "userId",
+          required: true,
+          schema: { type: "string" },
+          description: "Author user id",
+        },
+      ],
+      responses: {
+        "200": {
+          description: "Posts retrieved successfully",
+          content: {
+            "application/json": {
+              schema: {
+                type: "array",
+                items: {
+                  $ref: "#/components/schemas/Post",
+                },
+              },
+            },
+          },
+        },
+        "500": {
+          description: "Server error while retrieving user posts",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ErrorResponse",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
   "/api/post/{id}": {
     get: {
       tags: ["Post"],
