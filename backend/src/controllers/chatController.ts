@@ -1,133 +1,132 @@
 import { Response } from "express";
-import ChatMessage from "../models/chatModel";
-import { AuthRequest } from "../types/auth"; 
 import { Types } from "mongoose";
+import ChatMessage from "../models/chatModel";
+import { AuthRequest } from "../types/auth";
 
-// Controller for handling chat-related operations
 export const chatController = {
-    // Get list of conversations for the authenticated user
-    async getConversations(req: AuthRequest, res: Response): Promise<void> {
-        try {
-            const authUserId = req.user!.sub;
+  async getConversations(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const authUserId = req.user!.sub;
+      if (!Types.ObjectId.isValid(authUserId)) {
+        res.status(400).json({ message: "Invalid authenticated user id" });
+        return;
+      }
 
-            const conversations = await ChatMessage.aggregate([
-            {
-                $match: {
-                        $or: [{ senderId: authUserId }, { receiverId: authUserId }],
-                },
+      const authOid = new Types.ObjectId(authUserId);
+
+      const conversations = await ChatMessage.aggregate([
+        {
+          $match: {
+            $or: [{ sender: authOid }, { recipient: authOid }],
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $addFields: {
+            otherUserId: {
+              $cond: [{ $eq: ["$sender", authOid] }, "$recipient", "$sender"],
             },
-            { $sort: { createdAt: -1 } },
-            {
-                $addFields: {
-                    otherUserId: {
-                        $cond: [{ $eq: ["$senderId", authUserId] }, "$receiverId", "$senderId" ] 
-                    },
-                },
-            },
-            {
-                $group: {
-                    _id: "$otherUserId",
-                    lastMessage: { $first: "$message" },
-                    lastMessageAt: { $first: "$createdAt" },
-                    unread: {
-                        $sum: {
-                            $cond: [
-                                { $and: [{ $eq: ["$receiverId", authUserId] }, { $eq: ["$read", false] }] }, 1, 0
-                            ],
-                        },
-                    },
-
-                }
-            },
-                { 
-                    $sort: { lastMessageAt: -1 },
-                },
-               
-                {
-                    $lookup: {
-                        from: "users",
-                        localField: "_id",
-                        foreignField: "_id",
-                        as: "otherUser",
-                    },
-                },
-                {
-                    $unwind: "$otherUser",
-                },
-                {
-                    $project: {
-                        _id: 0,
-                        userId: "$otherUser._id",
-                        username: "$otherUser.username",
-                        profileUrl: "$otherUser.profileUrl",
-                        lastMessage: 1,
-                        lastMessageAt: 1,
-                        unread: 1,
-                    },
-                }
-            ]);
-
-            res.json(conversations);
-        } catch (error) {
-            res.status(500).json({ message: "Failed to fetch conversations", error });
-        }
-    },
-
-    // Get chat history between authenticated user and another user
-    async getChatHistory(req: AuthRequest, res: Response): Promise<void> {
-        try {
-            const authUserId = req.user!.sub;
-            const { userId: targetUserId } = req.params as { userId: string };
-
-            if (!Types.ObjectId.isValid(targetUserId)) {
-                res.status(400).json({ message: "Invalid user ID" });
-                return;
-            }
-
-            if (authUserId === targetUserId) {
-                res.status(400).json({ message: "Cannot fetch chat history with yourself" });
-                return;
-            }
-
-            const messages = await ChatMessage.find({
-                $or: [
-                    { senderId: authUserId, receiverId: targetUserId },
-                    { senderId: targetUserId, receiverId: authUserId },
+          },
+        },
+        {
+          $group: {
+            _id: "$otherUserId",
+            lastMessage: { $first: "$content" },
+            lastMessageAt: { $first: "$createdAt" },
+            unread: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$recipient", authOid] },
+                      { $eq: ["$read", false] },
+                    ],
+                  },
+                  1,
+                  0,
                 ],
-            }).sort({ createdAt: 1 })
-            .populate("senderId", "username profileUrl")
-            .populate("receiverId", "username profileUrl");
-        res.json(messages);
+              },
+            },
+          },
+        },
+        { $sort: { lastMessageAt: -1 } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "otherUser",
+          },
+        },
+        { $unwind: "$otherUser" },
+        {
+          $project: {
+            _id: 0,
+            userId: "$otherUser._id",
+            username: "$otherUser.username",
+            profileUrl: "$otherUser.profileUrl",
+            lastMessage: 1,
+            lastMessageAt: 1,
+            unread: 1,
+          },
+        },
+      ]);
+
+      res.json(conversations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch conversations", error });
     }
-        catch (error) {
-            res.status(500).json({ message: "Failed to fetch chat history", error });
-        }
-    },
+  },
 
-    // Mark a message as read
-    async markAsRead(req: AuthRequest, res: Response) {
-        try {
-            const authUserId = req.user!.sub;
-            const {userId: senderId} = req.params as { userId: string };
-            const { messageId } = req.params;
+  async getChatHistory(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const authUserId = req.user!.sub;
+      const { userId: targetUserId } = req.params as { userId: string };
 
-            if (!Types.ObjectId.isValid(senderId)) {
-                res.status(400).json({ message: "Invalid sender ID or message ID" });
-                return;
-            }
+      if (!Types.ObjectId.isValid(targetUserId)) {
+        res.status(400).json({ message: "Invalid user ID" });
+        return;
+      }
 
-            if (authUserId === senderId) {
-                res.status(400).json({ message: "Cannot mark your own message as read" });
-                return;
-            }
+      if (authUserId === targetUserId) {
+        res.status(400).json({ message: "Cannot fetch chat history with yourself" });
+        return;
+      }
 
-            await ChatMessage.findOneAndUpdate(
-                { _id: messageId, senderId, receiverId: authUserId },
-                { read: true }
-            );
-            res.json({ message: "Message marked as read" });
-        } catch (error) {
-            res.status(500).json({ message: "Failed to mark message as read", error });
-        }
+      const messages = await ChatMessage.find({
+        $or: [
+          { sender: authUserId, recipient: targetUserId },
+          { sender: targetUserId, recipient: authUserId },
+        ],
+      })
+        .sort({ createdAt: 1 })
+        .populate("sender", "username profileUrl")
+        .populate("recipient", "username profileUrl");
+
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch chat history", error });
     }
+  },
+
+  async markAsRead(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const authUserId = req.user!.sub;
+      const { messageId } = req.params as { messageId: string };
+
+      if (!Types.ObjectId.isValid(messageId)) {
+        res.status(400).json({ message: "Invalid message ID" });
+        return;
+      }
+
+      await ChatMessage.findOneAndUpdate(
+        { _id: messageId, recipient: authUserId },
+        { read: true },
+      );
+
+      res.json({ message: "Message marked as read" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark message as read", error });
+    }
+  },
 };

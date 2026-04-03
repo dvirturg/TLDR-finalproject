@@ -80,7 +80,7 @@ const UserProfilePage: React.FC = () => {
           <h2 className="profile-username">{profileData?.username}</h2>
           <button
             className="profile-edit-btn"
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate(`/chat?userId=${userId}`)}
           >
             Chat
           </button>
