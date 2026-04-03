@@ -55,15 +55,32 @@ export const postController = {
 
   async getAllPosts(req: Request, res: Response) {
     try {
-      let query = Post.find();
-      if (Object.keys(req.query).length > 0) {
-        query = Post.find(req.query);
-      }
-      const posts = await query
-        .populate("author", "username profileUrl")
-        .sort({ createdAt: -1 });
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 10;
+      const skip = (page - 1) * limit;
 
-      return res.json(posts);
+      const { page: _p, ...filters } = req.query;
+
+      const posts = await Post.find(filters)
+        .populate("author", "username profileUrl")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      const totalPosts = await Post.countDocuments(filters);
+      
+      const currentUserId = (req as AuthRequest).user?.sub;
+      const safePosts = await serializePosts(posts, currentUserId);
+
+      return res.json({
+        posts: safePosts,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts,
+          hasNextPage: page * limit < totalPosts
+        }
+      });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error retrieving posts" });
@@ -100,14 +117,27 @@ export const postController = {
 
   async updatePostById(req: AuthRequest, res: Response) {
     const postId = req.params.id;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+    
     try {
       const post = await Post.findById(postId);
       if (!post) {
+        if (req.file) await removeUploadedFile(req.file.path);
         return res.status(404).json({ message: "Post not found" });
       }
+
       if (post.author.toString() !== req.user?.sub) {
+        if (req.file) await removeUploadedFile(req.file.path);
         return res.status(403).json({ message: "You can only update your own posts" });
+      }
+
+      if (req.file) {
+        const oldImagePath = post.imageUrl;
+        updateData.imageUrl = `/public/uploads/posts/${req.file.filename}`;
+        if (oldImagePath && oldImagePath.startsWith("/public/")) {
+          const absoluteOldPath = path.join(__dirname, "../../", oldImagePath);
+          await fs.unlink(absoluteOldPath).catch(() => undefined);
+        }
       }
 
       const updatedPost = await Post.findByIdAndUpdate(postId, updateData, {
@@ -116,6 +146,7 @@ export const postController = {
 
       return res.json(updatedPost);
     } catch (err) {
+      if (req.file) await removeUploadedFile(req.file.path);
       console.error(err);
       return res.status(500).json({ message: "Error updating post" });
     }
