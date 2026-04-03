@@ -17,6 +17,39 @@ export const postSchemas = {
     },
     required: ["_id", "text", "imageUrl", "author", "likes"],
   },
+  PostAuthorSummary: {
+    type: "object",
+    nullable: true,
+    properties: {
+      id: { type: "string", example: "67dc1f5e0f8d8d1f1c2b3a4c" },
+      username: { type: "string", example: "PostAuthor" },
+      profileUrl: { type: "string", example: "/uploads/profile-123.jpg" },
+    },
+  },
+  PostFeedItem: {
+    type: "object",
+    properties: {
+      _id: { type: "string", example: "67dc1f5e0f8d8d1f1c2b3a4d" },
+      id: { type: "string", example: "67dc1f5e0f8d8d1f1c2b3a4d" },
+      text: { type: "string", example: "football drills for beginners" },
+      imageUrl: { type: "string", example: "" },
+      author: { $ref: "#/components/schemas/PostAuthorSummary" },
+      likes: { type: "integer", example: 3 },
+      likedByCurrentUser: { type: "boolean", example: false },
+      commentCount: { type: "integer", example: 2 },
+    },
+    required: ["_id", "id", "text", "imageUrl", "author", "likes", "likedByCurrentUser", "commentCount"],
+  },
+  RecommendationFeedResponse: {
+    type: "object",
+    properties: {
+      data: {
+        type: "array",
+        items: { $ref: "#/components/schemas/PostFeedItem" },
+      },
+    },
+    required: ["data"],
+  },
   CreatePostMultipart: {
     type: "object",
     required: ["text", "author"],
@@ -148,6 +181,50 @@ export const postPaths = {
             "application/json": {
               schema: {
                 $ref: "#/components/schemas/ErrorResponse",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/post/recommendations": {
+    get: {
+      tags: ["Post"],
+      summary: "Get personalized recommendation feed",
+      description: "Builds a recommendation feed from the current user's liked posts using LLM keyword extraction and regex-based post matching.",
+      security: [{ bearerAuth: [] }],
+      responses: {
+        "200": {
+          description: "Recommended posts retrieved successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/RecommendationFeedResponse",
+              },
+            },
+          },
+        },
+        "401": {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ErrorResponse",
+              },
+            },
+          },
+        },
+        "500": {
+          description: "Server error while generating recommendations",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  error: { type: "string", example: "Failed to fetch recommendations" },
+                },
+                required: ["error"],
               },
             },
           },

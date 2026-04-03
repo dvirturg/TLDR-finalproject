@@ -2,8 +2,11 @@ import fs from "fs/promises";
 import path from "path";
 import { Request, Response } from "express";
 import Post from "../models/postModel";
-import { AuthRequest } from "../types/auth"; 
 import { Types } from "mongoose";
+import { AuthRequest } from "../types/auth";
+import searchService from "../services/searchService";
+import llmService from "../services/llmService";
+import { getCommentCountMap, toPostDTO } from "../utils/postSerializer";
 
 const removeUploadedFile = async (filePath?: string) => {
   if (!filePath) {
@@ -12,11 +15,25 @@ const removeUploadedFile = async (filePath?: string) => {
   await fs.unlink(path.resolve(filePath)).catch(() => undefined);
 };
 
+const serializePosts = async (posts: any[], currentUserId?: string) => {
+  const countMap = await getCommentCountMap(posts.map((post) => post._id as Types.ObjectId));
+  return posts.map((post) => toPostDTO(post, countMap.get(String(post._id)) ?? 0, currentUserId));
+};
+
+const getGenericRecommendationFeed = async (userId: string) => {
+  return Post.find({
+    author: { $ne: new Types.ObjectId(userId) },
+  })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .populate("author", "username profileUrl");
+};
+
 export const postController = {
   async createPost(req: AuthRequest, res: Response) {
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-    
-    const author = req.user?.sub; 
+
+    const author = req.user?.sub;
     const imageUrl = req.file ? `/public/uploads/posts/${req.file.filename}` : "";
 
     if (!text || !author) {
@@ -86,13 +103,15 @@ export const postController = {
     const updateData = req.body;
     try {
       const post = await Post.findById(postId);
-      if (!post) return res.status(404).json({ message: "Post not found" });
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
       if (post.author.toString() !== req.user?.sub) {
         return res.status(403).json({ message: "You can only update your own posts" });
       }
 
-      const updatedPost = await Post.findByIdAndUpdate(postId, updateData, { 
-        returnDocument: "after" 
+      const updatedPost = await Post.findByIdAndUpdate(postId, updateData, {
+        returnDocument: "after",
       }).populate("author", "username profileUrl");
 
       return res.json(updatedPost);
@@ -106,7 +125,9 @@ export const postController = {
     const postId = req.params.id;
     try {
       const post = await Post.findById(postId);
-      if (!post) return res.status(404).json({ message: "Post not found" });
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
       if (post.author.toString() !== req.user?.sub) {
         return res.status(403).json({ message: "You can only delete your own posts" });
       }
@@ -121,10 +142,10 @@ export const postController = {
 
   async likePost(req: AuthRequest, res: Response) {
     const postId = req.params.id;
-    const userId = req.user?.sub; 
-    
+    const userId = req.user?.sub;
+
     if (!userId) {
-        return res.status(401).json({ message: "User not authenticated" });
+      return res.status(401).json({ message: "User not authenticated" });
     }
 
     try {
@@ -134,20 +155,47 @@ export const postController = {
       }
 
       const likeIndex = post.likes.findIndex((like: any) => like.toString() === userId);
-      
+
       if (likeIndex !== -1) {
         post.likes.splice(likeIndex, 1);
         await post.save();
         return res.json({ message: "Post unliked successfully" });
       }
 
-      post.likes.push(new Types.ObjectId(userId)); 
-      
+      post.likes.push(new Types.ObjectId(userId));
+
       await post.save();
       return res.json({ message: "Post liked successfully" });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error toggling post like" });
     }
-  }
+  },
+
+  async getRecommendedPosts(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const likedTexts = await searchService.getUserLikedPostTexts(userId);
+
+      let recommendedPosts: any[];
+      if (likedTexts.length === 0) {
+        recommendedPosts = await getGenericRecommendationFeed(userId);
+      } else {
+        const { keywords } = await llmService.extractInterestsFromLikes(likedTexts);
+        recommendedPosts = keywords.length > 0
+          ? await searchService.getRecommendedPostsByKeywords(userId, keywords)
+          : await getGenericRecommendationFeed(userId);
+      }
+
+      const safeData = await serializePosts(recommendedPosts, userId);
+      return res.json({ data: safeData });
+    } catch (error) {
+      console.error("Recommendation Error:", error);
+      return res.status(500).json({ error: "Failed to fetch recommendations" });
+    }
+  },
 };

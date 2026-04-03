@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,7 +15,7 @@ const extractErrorMessage = (err: unknown, fallback: string): string => {
 type Tab = 'login' | 'register';
 
 const LoginPage: React.FC = () => {
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<Tab>('login');
@@ -61,6 +61,27 @@ const LoginPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      setError('Google login failed. No credential received.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle(credentialResponse.credential!);
+      navigate('/feed');
+    } catch (err: unknown) {
+      setError(extractErrorMessage(err, 'Google login failed. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+    };
+  
+    const handleGoogleError = () => {
+      setError('Google login failed. Please try again.');
+    };
 
   return (
     <div
@@ -217,7 +238,8 @@ const LoginPage: React.FC = () => {
 
           <div className="d-flex flex-column gap-2">
             <div className="d-flex justify-content-center">
-              <GoogleLogin onSuccess={() => {}} onError={() => {}} />
+              <GoogleLogin onSuccess={handleGoogleLogin}
+               onError={handleGoogleError} />
             </div>
 
             <button

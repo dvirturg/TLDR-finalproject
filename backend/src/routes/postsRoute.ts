@@ -11,7 +11,8 @@ router.delete("/:id", authenticate, postController.deletePostById);
 router.post("/:id/like", authenticate, postController.likePost);
 
 router.get("/", postController.getAllPosts);
-router.get("/:id", postController.getPostById);
+router.get("/recommendations", authenticate, postController.getRecommendedPosts);
 router.get("/user/:userId", postController.getPostsByUserId);
+router.get("/:id", postController.getPostById);
 
 export default router;
