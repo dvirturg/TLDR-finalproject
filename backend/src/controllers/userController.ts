@@ -9,6 +9,7 @@ import {
   authenticateGoogleUser,
   authenticateLocalUser,
   registerLocalUser,
+  buildAuthResponse
 } from '../services/authService';
 
 export async function register(req: Request, res: Response): Promise<void> {
@@ -113,32 +114,26 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function googleLogin(req: Request, res: Response): Promise<void> {
+export const googleLogin = async (req: Request, res: Response) => {
   try {
-    const { idToken } = req.body as { idToken?: string };
+    const { idToken } = req.body;
     if (!idToken) {
-      res.status(400).json({ message: 'Google idToken is required' });
-      return;
+      return res.status(400).json({ message: "Google idToken is required" });
     }
 
     const user = await authenticateGoogleUser(idToken);
     if (!user) {
-      res.status(401).json({ message: 'Invalid Google credentials' });
-      return;
+      return res.status(401).json({ message: "Invalid Google credentials" });
     }
 
-    const tokens = generateTokens(user._id.toString(), user.username);
-    user.refreshTokens.push(tokens.refreshToken);
-    await user.save();
-
-    res.json({
-      user: { id: user._id, username: user.username, email: user.email },
-      ...tokens
-    });
+    const userObj = user.toObject ? user.toObject() : user;
+    
+    return res.status(200).json(buildAuthResponse(userObj));
   } catch (error) {
-    res.status(401).json({ message: 'Invalid Google credentials' });
+    console.error("Google Login Error:", error);
+    return res.status(401).json({ message: "Invalid Google credentials" });
   }
-}
+};
 
 export async function getUserById(req: AuthRequest, res: Response): Promise<void> {
   const user = await User.findById(req.params['id']).select('-password -refreshTokens');
