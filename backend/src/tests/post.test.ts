@@ -5,7 +5,7 @@ import request from "supertest";
 import initApp from "../index";
 import Post from "../models/postModel";
 import User from "../models/userModel"; 
-import { generateToken } from "../utils/authUtils"; // ייבוא לייצור טוקן
+import { generateTokens } from "../utils/authUtils"; // Updated import
 
 const TEST_MONGO_URI = "mongodb://localhost:27017/test_db";
 const uploadsDir = path.resolve(__dirname, "../../public/uploads/posts");
@@ -18,7 +18,7 @@ let app: any;
 let postsList: PostData[];
 let realImagePath: string;
 let testUserId: string;
-let accessToken: string; // משתנה לטוקן
+let accessToken: string; 
 
 const cleanupUploadedFiles = async () => {
   try {
@@ -39,7 +39,8 @@ beforeAll(async () => {
   jest.spyOn(console, "error").mockImplementation(() => {});
   global.fetch = mockFetch as unknown as typeof fetch;
   process.env.MONGO_URI = TEST_MONGO_URI;
-  process.env.JWT_SECRET = "secret_key"; 
+  process.env.JWT_SECRET = "secret_key";
+  process.env.JWT_REFRESH_SECRET = "refresh_secret_key"; // Added refresh secret
   app = await initApp();
   
   const imageFiles = await fs.readdir(sourceImagesDir);
@@ -73,7 +74,10 @@ describe("Post API", () => {
       password: "password123"
     });
     testUserId = user._id.toString();
-    accessToken = generateToken(testUserId, user.username);
+    
+    // Updated to extract accessToken from generated tokens object
+    const tokens = generateTokens(testUserId, user.username);
+    accessToken = tokens.accessToken;
 
     postsList = [
       { text: "this is my post" },
@@ -100,7 +104,7 @@ describe("Post API", () => {
   test("Create Post with image upload", async () => {
     const response = await request(app)
       .post("/api/post")
-      .set("Authorization", `Bearer ${accessToken}`) // טוקן
+      .set("Authorization", `Bearer ${accessToken}`)
       .field("text", "post with image")
       .attach("image", realImagePath);
 
@@ -113,7 +117,7 @@ describe("Post API", () => {
     const newText = "Updated Text";
     const response = await request(app)
       .put(`/api/post/${postsList[0]._id}`)
-      .set("Authorization", `Bearer ${accessToken}`) // טוקן
+      .set("Authorization", `Bearer ${accessToken}`)
       .send({ text: newText });
 
     expect(response.status).toBe(200);
@@ -140,7 +144,7 @@ describe("Post API", () => {
   test("Delete Post", async () => {
     const response = await request(app)
       .delete(`/api/post/${postsList[0]._id}`)
-      .set("Authorization", `Bearer ${accessToken}`); // טוקן
+      .set("Authorization", `Bearer ${accessToken}`);
       
     expect(response.status).toBe(200);
     expect(response.body.message).toBe("Post deleted successfully");

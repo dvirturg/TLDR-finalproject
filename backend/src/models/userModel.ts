@@ -1,7 +1,19 @@
-import mongoose from "mongoose";
+import mongoose, { Document } from "mongoose";
 import bcrypt from "bcrypt";
 
-const userSchema = new mongoose.Schema(
+export interface IUser extends Document {
+  username: string;
+  email: string;
+  password?: string;
+  authProvider: "local" | "google";
+  googleId?: string;
+  profileUrl: string;
+  refreshTokens: string[]; 
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const userSchema = new mongoose.Schema<IUser>(
   {
     username: {
       type: String,
@@ -46,7 +58,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.pre("save", async function () {
+userSchema.pre<IUser>("save", async function () {
   if (!this.isModified("password") || !this.password) {
     return;
   }
@@ -59,4 +71,4 @@ userSchema.pre("save", async function () {
   }
 });
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model<IUser>("User", userSchema);
