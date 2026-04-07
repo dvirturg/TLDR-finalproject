@@ -1,8 +1,18 @@
 import axiosInstance from './axiosInstance';
 import type { PostInter } from '../types';
 
+interface PostsResponse {
+  posts: PostInter[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalPosts: number;
+    hasNextPage: boolean;
+  };
+}
+
 export const getPosts = async (params?: { page?: number; limit?: number; q?: string }) => {
-  const response = await axiosInstance.get<{ data: PostInter[]; pages: number }>('/post', { params });
+  const response = await axiosInstance.get<PostsResponse>('/post', { params });
   return response.data;
 };
 
