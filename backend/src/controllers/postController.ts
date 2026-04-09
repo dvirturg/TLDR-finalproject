@@ -87,6 +87,39 @@ export const postController = {
     }
   },
 
+  async searchPosts(req: AuthRequest, res: Response) {
+    try {
+      const query = (req.query.q as string | undefined)?.trim() ?? "";
+      if (!query) {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 10;
+      const parsedQuery = await llmService.parseSearchQuery(query);
+      const { posts, totalPosts } = await searchService.searchPosts(parsedQuery, { page, limit });
+      const safePosts = await serializePosts(posts, userId);
+
+      return res.json({
+        posts: safePosts,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts,
+          hasNextPage: page * limit < totalPosts,
+        },
+      });
+    } catch (error) {
+      console.error("Search Error:", error);
+      return res.status(500).json({ message: "Search operation failed" });
+    }
+  },
+
   async getPostById(req: Request, res: Response) {
     const postId = req.params.id;
     try {

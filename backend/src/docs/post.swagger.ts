@@ -50,6 +50,26 @@ export const postSchemas = {
     },
     required: ["data"],
   },
+  PaginatedPostFeedResponse: {
+    type: "object",
+    properties: {
+      posts: {
+        type: "array",
+        items: { $ref: "#/components/schemas/PostFeedItem" },
+      },
+      pagination: {
+        type: "object",
+        properties: {
+          currentPage: { type: "integer", example: 1 },
+          totalPages: { type: "integer", example: 3 },
+          totalPosts: { type: "integer", example: 25 },
+          hasNextPage: { type: "boolean", example: true },
+        },
+        required: ["currentPage", "totalPages", "totalPosts", "hasNextPage"],
+      },
+    },
+    required: ["posts", "pagination"],
+  },
   CreatePostMultipart: {
     type: "object",
     required: ["text", "author"],
@@ -225,6 +245,72 @@ export const postPaths = {
                   error: { type: "string", example: "Failed to fetch recommendations" },
                 },
                 required: ["error"],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/post/search": {
+    get: {
+      tags: ["Post"],
+      summary: "Search posts with LLM query expansion",
+      description: "Parses the incoming free-text query with the LLM service, expands it into keywords, and returns matching posts with feed metadata.",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: "query",
+          name: "q",
+          required: true,
+          schema: { type: "string" },
+          description: "Free-text search query",
+        },
+        {
+          in: "query",
+          name: "page",
+          required: false,
+          schema: { type: "integer", minimum: 1, default: 1 },
+          description: "Results page number",
+        },
+      ],
+      responses: {
+        "200": {
+          description: "Search results retrieved successfully",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PaginatedPostFeedResponse",
+              },
+            },
+          },
+        },
+        "400": {
+          description: "Missing or blank search query",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ErrorResponse",
+              },
+            },
+          },
+        },
+        "401": {
+          description: "Authentication required",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ErrorResponse",
+              },
+            },
+          },
+        },
+        "500": {
+          description: "Server error while searching posts",
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/ErrorResponse",
               },
             },
           },
