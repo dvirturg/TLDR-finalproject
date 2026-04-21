@@ -36,3 +36,10 @@ export const getPostsByUserId = async (userId: string) => {
   const response = await axiosInstance.get<PostInter[]>(`/post/user/${userId}`);
   return response.data;
 };
+
+export const searchPosts = async (query: string, params?: { page?: number; limit?: number }) => {
+  const response = await axiosInstance.get<{ data: PostInter[]; pages: number }>('/post/search', {
+    params: { q: query, ...params },
+  });
+  return response.data;
+};

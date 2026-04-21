@@ -55,6 +55,7 @@ class SearchService {
 
   async simpleTextSearch(query: string): Promise<Document[]> {
     try {
+      
       const results = await Post.find({ text: { $regex: query, $options: "i" } })
         .sort({ createdAt: -1 })
         .populate("author", "username profileUrl");
