@@ -73,7 +73,7 @@ export const postController = {
       const safePosts = await serializePosts(posts, currentUserId);
 
       return res.json({
-        posts: safePosts,
+        data: safePosts,
         pagination: {
           currentPage: page,
           totalPages: Math.ceil(totalPosts / limit),
@@ -84,6 +84,61 @@ export const postController = {
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error retrieving posts" });
+    }
+  },
+
+  async searchPosts(req: AuthRequest, res: Response) {
+    try {
+      const query = (req.query.q as string | undefined)?.trim() ?? "";
+      if (!query) {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 10;
+
+      // Simple regex search
+      const regexPattern = new RegExp(query, "i");
+      const regexPosts = await Post.find({ text: regexPattern })
+        .populate("author", "username profileUrl")
+        .sort({ createdAt: -1 });
+
+      // AI-powered search
+      const parsedQuery = await llmService.parseSearchQuery(query);
+      const { posts: aiPosts } = await searchService.searchPosts(parsedQuery, { page, limit });
+
+      // Compose results: combine and deduplicate by ID
+      const postsMap = new Map();
+      [...regexPosts, ...aiPosts].forEach((post) => {
+        if (!postsMap.has(post._id.toString())) {
+          postsMap.set(post._id.toString(), post);
+        }
+      });
+
+      const composedPosts = Array.from(postsMap.values())
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice((page - 1) * limit, page * limit);
+
+      const safePosts = await serializePosts(composedPosts, userId);
+      const totalPosts = postsMap.size;
+
+      return res.json({
+        posts: safePosts,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts,
+          hasNextPage: page * limit < totalPosts,
+        },
+      });
+    } catch (error) {
+      console.error("Search Error:", error);
+      return res.status(500).json({ message: "Search operation failed" });
     }
   },
 

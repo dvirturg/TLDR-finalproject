@@ -6,10 +6,26 @@ type LeanLikedPost = {
   text?: unknown;
 };
 
+type SearchPostsOptions = {
+  page: number;
+  limit: number;
+};
+
+type SearchPostsResult = {
+  posts: Document[];
+  totalPosts: number;
+};
+
 class SearchService {
-  async searchPosts(parsedQuery: ParsedQuery): Promise<Document[]> {
+  async searchPosts(
+    parsedQuery: ParsedQuery,
+    { page, limit }: SearchPostsOptions,
+  ): Promise<SearchPostsResult> {
     try {
       const mongoQuery: Record<string, unknown> = {};
+      const safePage = page > 0 ? page : 1;
+      const safeLimit = limit > 0 ? limit : 10;
+      const skip = (safePage - 1) * safeLimit;
 
       if (parsedQuery.keywords && parsedQuery.keywords.length > 0) {
         const regexes = parsedQuery.keywords.map((kw) => ({
@@ -18,11 +34,19 @@ class SearchService {
         mongoQuery["$or"] = regexes;
       }
 
-      const results = await Post.find(mongoQuery)
-        .sort({ createdAt: -1 })
-        .populate("author", "username profileUrl");
+      const [results, totalPosts] = await Promise.all([
+        Post.find(mongoQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(safeLimit)
+          .populate("author", "username profileUrl"),
+        Post.countDocuments(mongoQuery),
+      ]);
 
-      return results as Document[];
+      return {
+        posts: results as Document[],
+        totalPosts,
+      };
     } catch (error) {
       console.error("Search service error:", error);
       throw new Error("Search operation failed");
@@ -31,6 +55,7 @@ class SearchService {
 
   async simpleTextSearch(query: string): Promise<Document[]> {
     try {
+      
       const results = await Post.find({ text: { $regex: query, $options: "i" } })
         .sort({ createdAt: -1 })
         .populate("author", "username profileUrl");
