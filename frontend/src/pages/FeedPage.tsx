@@ -24,7 +24,7 @@ const FeedPage: React.FC = () => {
 
     try {
       const response = await getPosts({ page: pageNumber });
-      const nextPosts = response.posts ?? [];
+      const nextPosts = response.data ?? [];
       setPosts((prevPosts) => (pageNumber === 1 ? nextPosts : [...prevPosts, ...nextPosts]));
       setHasNextPage(response.pagination?.hasNextPage ?? false);
       setPage(pageNumber);

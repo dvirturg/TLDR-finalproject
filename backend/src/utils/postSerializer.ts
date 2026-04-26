@@ -19,7 +19,21 @@ export function toPostDTO(post: any, commentCount: number, currentUserId?: strin
       ? { id: String(a._id), username: String(a.username), profileUrl: String(a.profileUrl ?? '') }
       : null;
   const likesArray = Array.isArray(post.likes) ? (post.likes as unknown[]) : [];
+  
+  // Debug: Log the comparison
+  if (currentUserId && likesArray.length > 0) {
+    console.log(`[Serializer Debug] Post: ${post._id}, currentUserId: "${currentUserId}", likesArray length: ${likesArray.length}`);
+    likesArray.forEach((id, idx) => {
+      console.log(`  Like ${idx}: "${String(id)}" (type: ${typeof id}, constructor: ${id?.constructor?.name})`);
+    });
+  }
+  
   const likedByCurrentUser = !!currentUserId && likesArray.some((id) => String(id) === currentUserId);
+  
+  if (currentUserId && likesArray.length > 0) {
+    console.log(`  Result: likedByCurrentUser = ${likedByCurrentUser}`);
+  }
+  
   return {
     _id: String(post._id),
     id: String(post._id),

@@ -23,11 +23,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner, onDelete, onPostUpda
   const currentUserId = currentUser?.id || currentUser?._id || currentUser?.userId || null;
   const canLike = !!currentUserId;
 
-  const likesArray = Array.isArray(post.likes) ? post.likes : null;
-  const isLikedByMe = !!currentUserId && !!likesArray && likesArray.includes(currentUserId);
-  const likesCountValue = likesArray ? likesArray.length : post.likes;
+  const isLikedByMe = 
+    post.likedByCurrentUser !== undefined 
+      ? post.likedByCurrentUser 
+      : (() => {
+          const likesArray = Array.isArray(post.likes) ? post.likes : null;
+          return !!currentUserId && !!likesArray && likesArray.includes(currentUserId);
+        })();
 
-  const [isLiked, setIsLiked] = useState<boolean>(isLikedByMe || false);
+  const likesCountValue = Array.isArray(post.likes) ? post.likes.length : post.likes;
+
+  const [isLiked, setIsLiked] = useState<boolean>(isLikedByMe);
   const [likesCount, setLikesCount] = useState<number>(typeof likesCountValue === 'number' ? likesCountValue : 0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const commentsCount = typeof post.commentCount === 'number' ? post.commentCount : 0;

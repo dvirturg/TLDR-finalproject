@@ -45,7 +45,8 @@ export const postController = {
     try {
       const newPost = await Post.create({ text, author, imageUrl });
       const populatedPost = await Post.findById(newPost._id).populate("author", "username profileUrl");
-      res.status(201).json(populatedPost);
+      const serializedPost = await serializePosts([populatedPost], author);
+      res.status(201).json(serializedPost[0]);
     } catch (err) {
       await removeUploadedFile(req.file?.path);
       console.error(err);
@@ -70,6 +71,7 @@ export const postController = {
       const totalPosts = await Post.countDocuments(filters);
       
       const currentUserId = (req as AuthRequest).user?.sub;
+      console.log(`[getAllPosts] currentUserId from auth: "${currentUserId}"`);
       const safePosts = await serializePosts(posts, currentUserId);
 
       return res.json({
@@ -149,7 +151,9 @@ export const postController = {
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      return res.json(post);
+      const currentUserId = (req as AuthRequest).user?.sub;
+      const serializedPost = await serializePosts([post], currentUserId);
+      return res.json(serializedPost[0]);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error retrieving post" });
@@ -163,7 +167,9 @@ export const postController = {
         .populate("author", "username profileUrl")
         .sort({ createdAt: -1 });
 
-      return res.json(posts);
+      const currentUserId = (req as AuthRequest).user?.sub;
+      const safePosts = await serializePosts(posts, currentUserId);
+      return res.json(safePosts);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error retrieving user posts" });
@@ -199,7 +205,9 @@ export const postController = {
         returnDocument: "after",
       }).populate("author", "username profileUrl");
 
-      return res.json(updatedPost);
+      const currentUserId = req.user?.sub;
+      const serializedPost = await serializePosts([updatedPost], currentUserId);
+      return res.json(serializedPost[0]);
     } catch (err) {
       if (req.file) await removeUploadedFile(req.file.path);
       console.error(err);
@@ -245,13 +253,17 @@ export const postController = {
       if (likeIndex !== -1) {
         post.likes.splice(likeIndex, 1);
         await post.save();
-        return res.json({ message: "Post unliked successfully" });
+        const populatedPost = await Post.findById(postId).populate("author", "username profileUrl");
+        const serializedPost = await serializePosts([populatedPost], userId);
+        return res.json(serializedPost[0]);
       }
 
       post.likes.push(new Types.ObjectId(userId));
 
       await post.save();
-      return res.json({ message: "Post liked successfully" });
+      const populatedPost = await Post.findById(postId).populate("author", "username profileUrl");
+      const serializedPost = await serializePosts([populatedPost], userId);
+      return res.json(serializedPost[0]);
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Error toggling post like" });
