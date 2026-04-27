@@ -19,7 +19,9 @@ export function toPostDTO(post: any, commentCount: number, currentUserId?: strin
       ? { id: String(a._id), username: String(a.username), profileUrl: String(a.profileUrl ?? '') }
       : null;
   const likesArray = Array.isArray(post.likes) ? (post.likes as unknown[]) : [];
+  
   const likedByCurrentUser = !!currentUserId && likesArray.some((id) => String(id) === currentUserId);
+  
   return {
     _id: String(post._id),
     id: String(post._id),

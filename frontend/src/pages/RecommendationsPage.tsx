@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { getPosts } from '../api/postsApi';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { getRecommendedPosts } from '../api/postsApi';
 import type { PostInter } from '../types';
 import PostCard from '../components/PostCard';
-import RecommendationsSidebar from '../components/RecommendationsSidebar';
 
-const FeedPage: React.FC = () => {
-  const [posts, setPosts] = useState<PostInter[]>([]);
+const RecommendationsPage: React.FC = () => {
+  const [recommendations, setRecommendations] = useState<PostInter[]>([]);
   const [page, setPage] = useState<number>(1);
   const [hasNextPage, setHasNextPage] = useState<boolean>(true);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -32,16 +31,17 @@ const FeedPage: React.FC = () => {
     }
 
     try {
-      const response = await getPosts({ page: pageNumber });
-      const nextPosts = response.data ?? [];
-      setPosts((prevPosts) => (pageNumber === 1 ? nextPosts : [...prevPosts, ...nextPosts]));
-      setHasNextPage(response.pagination?.hasNextPage ?? false);
+      if (!userId) return;
+      const data = await getRecommendedPosts(userId, { page: pageNumber });
+      const nextPosts = data.data ?? [];
+      setRecommendations((prevPosts) => (pageNumber === 1 ? nextPosts : [...prevPosts, ...nextPosts]));
+      setHasNextPage(data.pages ? pageNumber < data.pages : false);
       setPage(pageNumber);
     } catch (err) {
       if (pageNumber === 1) {
-        setError('Failed to fetch posts. Please try again.');
+        setError('Failed to load recommendations. Please try again.');
       } else {
-        setLoadMoreError('Failed to load more posts. Try again.');
+        setLoadMoreError('Failed to load more recommendations. Try again.');
       }
       console.error(err);
     } finally {
@@ -51,7 +51,7 @@ const FeedPage: React.FC = () => {
         setIsLoadingMore(false);
       }
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void loadPage(1);
@@ -76,7 +76,7 @@ const FeedPage: React.FC = () => {
   }, [hasNextPage, isInitialLoading, isLoadingMore, loadPage, page]);
 
   const handleRetry = () => {
-    setPosts([]);
+    setRecommendations([]);
     setPage(1);
     setHasNextPage(true);
     setLoadMoreError(null);
@@ -89,48 +89,50 @@ const FeedPage: React.FC = () => {
 
   if (isInitialLoading) {
     return (
-      <div className="feed-page-container">
-        <div className="feed-page">
-          <div className="skeleton-loader"></div>
-          <div className="skeleton-loader"></div>
-          <div className="skeleton-loader"></div>
-        </div>
-        <RecommendationsSidebar userId={userId} />
+      <div className="feed-page">
+        <h2>Recommended For You</h2>
+        <div className="skeleton-loader"></div>
+        <div className="skeleton-loader"></div>
+        <div className="skeleton-loader"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="feed-page-container">
-        <div className="feed-page">
-          <p className="error-message">{error}</p>
-          <button className="retry-button" onClick={handleRetry}>Retry</button>
-        </div>
-        <RecommendationsSidebar userId={userId} />
+      <div className="feed-page">
+        <h2>Recommended For You</h2>
+        <p className="error-message">{error}</p>
+        <button className="retry-button" onClick={handleRetry}>Retry</button>
+      </div>
+    );
+  }
+
+  if (recommendations.length === 0) {
+    return (
+      <div className="feed-page">
+        <h2>Recommended For You</h2>
+        <p className="recommendations-empty">No recommendations available yet</p>
       </div>
     );
   }
 
   return (
-    <div className="feed-page-container">
-      <div className="feed-page">
-        {posts.map((post, index) => (
-          <PostCard key={post._id ?? post.id ?? index} post={post} />
-        ))}
-        {loadMoreError && (
-          <div className="feed-load-more-error">
-            <p className="error-message">{loadMoreError}</p>
-            <button className="retry-button" onClick={handleLoadMoreRetry}>Retry</button>
-          </div>
-        )}
-        {isLoadingMore && <div className="feed-loading-more">Loading more posts...</div>}
-        {hasNextPage && !isLoadingMore && <div ref={loadMoreRef} style={{ height: '1px' }} />}
-      </div>
-      <RecommendationsSidebar userId={userId} />
+    <div className="feed-page">
+      <h2>Recommended For You</h2>
+      {recommendations.map((post, index) => (
+        <PostCard key={post._id ?? post.id ?? index} post={post} />
+      ))}
+      {loadMoreError && (
+        <div className="feed-load-more-error">
+          <p className="error-message">{loadMoreError}</p>
+          <button className="retry-button" onClick={handleLoadMoreRetry}>Retry</button>
+        </div>
+      )}
+      {isLoadingMore && <div className="feed-loading-more">Loading more recommendations...</div>}
+      {hasNextPage && !isLoadingMore && <div ref={loadMoreRef} style={{ height: '1px' }} />}
     </div>
   );
 };
 
-export default FeedPage;
-
+export default RecommendationsPage;

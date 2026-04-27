@@ -2,7 +2,7 @@ import axiosInstance from './axiosInstance';
 import type { PostInter } from '../types';
 
 interface PostsResponse {
-  posts: PostInter[];
+  data: PostInter[];
   pagination: {
     currentPage: number;
     totalPages: number;
@@ -50,6 +50,13 @@ export const getPostsByUserId = async (userId: string) => {
 export const searchPosts = async (query: string, params?: { page?: number; limit?: number }) => {
   const response = await axiosInstance.get<{ data: PostInter[]; pages: number }>('/post/search', {
     params: { q: query, ...params },
+  });
+  return response.data;
+};
+
+export const getRecommendedPosts = async (userId: string, params?: { page?: number; limit?: number }) => {
+  const response = await axiosInstance.get<{ data: PostInter[]; pages: number }>(`/post/recommendations`, {
+    params,
   });
   return response.data;
 };
