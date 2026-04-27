@@ -71,7 +71,6 @@ export const postController = {
       const totalPosts = await Post.countDocuments(filters);
       
       const currentUserId = (req as AuthRequest).user?.sub;
-      console.log(`[getAllPosts] currentUserId from auth: "${currentUserId}"`);
       const safePosts = await serializePosts(posts, currentUserId);
 
       return res.json({
@@ -277,6 +276,10 @@ export const postController = {
         return res.status(401).json({ message: "User not authenticated" });
       }
 
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 10;
+      const skip = (page - 1) * limit;
+
       const likedTexts = await searchService.getUserLikedPostTexts(userId);
 
       let recommendedPosts: any[];
@@ -289,8 +292,14 @@ export const postController = {
           : await getGenericRecommendationFeed(userId);
       }
 
-      const safeData = await serializePosts(recommendedPosts, userId);
-      return res.json({ data: safeData });
+      const totalPosts = recommendedPosts.length;
+      const paginatedPosts = recommendedPosts.slice(skip, skip + limit);
+      const safeData = await serializePosts(paginatedPosts, userId);
+      
+      return res.json({ 
+        data: safeData,
+        pages: Math.ceil(totalPosts / limit)
+      });
     } catch (error) {
       console.error("Recommendation Error:", error);
       return res.status(500).json({ error: "Failed to fetch recommendations" });

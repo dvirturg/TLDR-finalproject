@@ -10,6 +10,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import UploadPage from './pages/UploadPage';
 import PostCommentsPage from './pages/PostCommentsPage';
 import SearchPage from './pages/SearchPage';
+import RecommendationsPage from './pages/RecommendationsPage';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -26,6 +27,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/profile/:userId" element={<UserProfilePage />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/recommendations" element={<RecommendationsPage />} />
           </Route>
         </Route>
       </Routes>

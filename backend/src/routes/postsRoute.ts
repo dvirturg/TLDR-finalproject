@@ -10,10 +10,10 @@ router.put("/:id", authenticate, uploadPostImage, postController.updatePostById)
 router.delete("/:id", authenticate, postController.deletePostById);
 router.post("/:id/like", authenticate, postController.likePost);
 
-router.get("/", postController.getAllPosts);
+router.get("/", authenticate, postController.getAllPosts);
 router.get("/search", authenticate, postController.searchPosts);
 router.get("/recommendations", authenticate, postController.getRecommendedPosts);
-router.get("/user/:userId", postController.getPostsByUserId);
-router.get("/:id", postController.getPostById);
+router.get("/user/:userId", authenticate, postController.getPostsByUserId);
+router.get("/:id", authenticate, postController.getPostById);
 
 export default router;
