@@ -3,15 +3,14 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import fs from 'node:fs' 
+import path from 'node:path'
 
-// ── Terminal logger plugin ────────────────────────────────────────────────────
-// Exposes POST /__log on the Vite dev server.
-// The browser logger POSTs { level, args } here and Vite prints it to the shell.
 const COLORS: Record<string, string> = {
-  info:  '\x1b[36m',   // cyan
-  warn:  '\x1b[33m',   // yellow
-  error: '\x1b[31m',   // red
-  debug: '\x1b[90m',   // grey
+  info:  '\x1b[36m', 
+  warn:  '\x1b[33m', 
+  error: '\x1b[31m', 
+  debug: '\x1b[90m', 
   reset: '\x1b[0m',
 }
 
@@ -23,7 +22,6 @@ function terminalLoggerPlugin(): Plugin {
         '/__log',
         (req: IncomingMessage, res: ServerResponse) => {
           if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
-
           let body = ''
           req.on('data', (chunk: Buffer) => { body += chunk.toString(); })
           req.on('end', () => {
@@ -37,7 +35,6 @@ function terminalLoggerPlugin(): Plugin {
               const text = args
                 .map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)))
                 .join(' ')
-              // Emit through Vite's own logger so it formats alongside HMR output
               if (level === 'error') server.config.logger.error(`${label} ${text}`)
               else if (level === 'warn') server.config.logger.warn(`${label} ${text}`)
               else server.config.logger.info(`${label} ${text}`)
@@ -50,14 +47,23 @@ function terminalLoggerPlugin(): Plugin {
     },
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default defineConfig({
   plugins: [react(), terminalLoggerPlugin()],
   server: {
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, './localhost-key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, './localhost.pem')),
+    },
     proxy: {
-      '/uploads': 'http://localhost:5000',
-      '/public':  'http://localhost:5000',
+      '/uploads': {
+        target: 'https://localhost:5000', 
+        secure: false, 
+      },
+      '/public': {
+        target: 'https://localhost:5000', 
+        secure: false,
+      },
     },
   },
   test: {

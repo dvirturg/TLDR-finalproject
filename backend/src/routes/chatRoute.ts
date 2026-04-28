@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { chatController } from "../controllers/chatController";
-import { authenticate } from "../middleware/authenticate"; // ייבוא השומר
-
+import { authenticate } from "../middleware/authenticate"; 
 const router = Router();
 
 router.get("/conversations",authenticate, chatController.getConversations);
