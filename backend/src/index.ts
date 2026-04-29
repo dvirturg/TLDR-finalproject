@@ -13,7 +13,7 @@ dotenv.config({
 });
 
 const app = express();
-const publicDir = path.resolve(__dirname, "..", "public");
+const publicDir = path.resolve(process.cwd(), "public");
 const clientOrigin = process.env.CLIENT_ORIGIN || "https://localhost:5173";
 
 app.use(express.json());
