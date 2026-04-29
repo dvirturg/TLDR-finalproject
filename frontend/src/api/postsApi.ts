@@ -1,0 +1,78 @@
+import axiosInstance from './axiosInstance';
+import type { PostInter } from '../types';
+
+interface PostsResponse {
+  data: PostInter[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalPosts: number;
+    hasNextPage: boolean;
+  };
+}
+
+interface SearchPostsResponse {
+  posts: PostInter[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalPosts: number;
+    hasNextPage: boolean;
+  };
+}
+
+interface RecommendationsResponse {
+  data: PostInter[];
+  pages: number;
+  usingFallback?: boolean;
+}
+
+export const getPosts = async (params?: { page?: number; limit?: number; q?: string }) => {
+  const response = await axiosInstance.get<PostsResponse>('/post', { params });
+  return response.data;
+};
+
+export const getPostById = async (id: string) => {
+  const response = await axiosInstance.get<PostInter>(`/post/${id}`);
+  return response.data;
+};
+
+export const createPost = async (data: FormData) => {
+  const response = await axiosInstance.post<PostInter>('/post', data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const updatePost = async (id: string, data: Partial<PostInter>) => {
+  const response = await axiosInstance.put<PostInter>(`/post/${id}`, data);
+  return response.data;
+};
+
+export const deletePost = async (id: string) => {
+  await axiosInstance.delete(`/post/${id}`);
+};
+
+export const likePost = async (postId: string, userId: string) => {
+  const response = await axiosInstance.post(`/post/${postId}/like`, { userId });
+  return response.data;
+};
+
+export const getPostsByUserId = async (userId: string) => {
+  const response = await axiosInstance.get<PostInter[]>(`/post/user/${userId}`);
+  return response.data;
+};
+
+export const searchPosts = async (query: string, params?: { page?: number; limit?: number }) => {
+  const response = await axiosInstance.get<SearchPostsResponse>('/post/search', {
+    params: { q: query, ...params },
+  });
+  return response.data;
+};
+
+export const getRecommendedPosts = async (_userId?: string, params?: { page?: number; limit?: number }) => {
+  const response = await axiosInstance.get<RecommendationsResponse>(`/post/recommendations`, {
+    params,
+  });
+  return response.data;
+};
