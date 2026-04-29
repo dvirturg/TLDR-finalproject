@@ -281,27 +281,58 @@ export const postController = {
       const skip = (page - 1) * limit;
 
       const likedTexts = await searchService.getUserLikedPostTexts(userId);
+      console.log("Liked post texts for user", userId, ":", likedTexts);
 
       let recommendedPosts: any[];
+      let usingFallback = false;
+
       if (likedTexts.length === 0) {
         recommendedPosts = await getGenericRecommendationFeed(userId);
+        console.log("recommendedPosts based on generic feed:", recommendedPosts.map(p => p._id));
       } else {
         const { keywords } = await llmService.extractInterestsFromLikes(likedTexts);
-        recommendedPosts = keywords.length > 0
-          ? await searchService.getRecommendedPostsByKeywords(userId, keywords)
-          : await getGenericRecommendationFeed(userId);
+        console.log("Extracted keywords for user", userId, ":", keywords);
+        
+        if (keywords.length > 0) {
+          recommendedPosts = await searchService.getRecommendedPostsByKeywords(userId, keywords);
+        } else {
+          // LLM returned empty keywords - using fallback
+          recommendedPosts = await getGenericRecommendationFeed(userId);
+          usingFallback = true;
+        }
       }
 
       const totalPosts = recommendedPosts.length;
       const paginatedPosts = recommendedPosts.slice(skip, skip + limit);
       const safeData = await serializePosts(paginatedPosts, userId);
+      console.log("Returning recommended posts for user", userId, ":", safeData.map(p => p.id));
       
       return res.json({ 
         data: safeData,
-        pages: Math.ceil(totalPosts / limit)
+        pages: Math.ceil(totalPosts / limit),
+        usingFallback
       });
     } catch (error) {
       console.error("Recommendation Error:", error);
+      // Return generic feed on error with fallback flag
+      try {
+        const userId = req.user?.sub;
+        if (userId) {
+          const fallbackPosts = await getGenericRecommendationFeed(userId);
+          const page = parseInt(req.query.page as string) || 1;
+          const limit = 10;
+          const skip = (page - 1) * limit;
+          const paginatedPosts = fallbackPosts.slice(skip, skip + limit);
+          const safeData = await serializePosts(paginatedPosts, userId);
+          return res.json({ 
+            data: safeData,
+            pages: Math.ceil(fallbackPosts.length / limit),
+            usingFallback: true
+          });
+        }
+      } catch (fallbackError) {
+        console.error("Fallback error:", fallbackError);
+      }
       return res.status(500).json({ error: "Failed to fetch recommendations" });
     }
   },

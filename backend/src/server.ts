@@ -6,7 +6,7 @@ import { attachChatSocket } from "./socket";
 const initApp = require("./index").default as () => Promise<import("express").Express>;
 
 const port = process.env.PORT || 5000;
-const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const clientOrigin = process.env.CLIENT_ORIGIN || "https://localhost:5173";
 
 const sslOptions = {
   key: fs.readFileSync(path.join(__dirname, "../localhost-key.pem")),

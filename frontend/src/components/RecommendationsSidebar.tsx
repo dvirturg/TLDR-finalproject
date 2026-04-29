@@ -13,14 +13,24 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({ userId 
   const [recommendations, setRecommendations] = useState<PostInter[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [llmUnavailable, setLlmUnavailable] = useState<boolean>(false);
 
   const fetchRecommendations = useCallback(async () => {
     if (!userId) return;
     setIsLoading(true);
     setError(null);
+    setLlmUnavailable(false);
     try {
       const data = await getRecommendedPosts(userId);
       setRecommendations(data.data || []);
+      
+      // Show notification if using fallback (LLM unavailable)
+      if (data.usingFallback) {
+        setLlmUnavailable(true);
+        // Auto-dismiss after 5 seconds
+        const timer = setTimeout(() => setLlmUnavailable(false), 5000);
+        return () => clearTimeout(timer);
+      }
     } catch (err) {
       console.error('Failed to fetch recommendations:', err);
       setError('Failed to load recommendations');
@@ -52,6 +62,15 @@ const RecommendationsSidebar: React.FC<RecommendationsSidebarProps> = ({ userId 
           🔄
         </button>
       </div>
+
+      {llmUnavailable && (
+        <div className="llm-unavailable-popup">
+          <div className="popup-content">
+            <span className="popup-icon">⚠️</span>
+            <p>AI recommendation system temporarily unavailable. Showing popular posts.</p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="recommendations-error">

@@ -11,6 +11,7 @@ const RecommendationsPage: React.FC = () => {
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [llmUnavailable, setLlmUnavailable] = useState<boolean>(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const currentUser = useMemo(() => {
@@ -25,6 +26,7 @@ const RecommendationsPage: React.FC = () => {
     if (pageNumber === 1) {
       setIsInitialLoading(true);
       setError(null);
+      setLlmUnavailable(false);
     } else {
       setIsLoadingMore(true);
       setLoadMoreError(null);
@@ -37,6 +39,13 @@ const RecommendationsPage: React.FC = () => {
       setRecommendations((prevPosts) => (pageNumber === 1 ? nextPosts : [...prevPosts, ...nextPosts]));
       setHasNextPage(data.pages ? pageNumber < data.pages : false);
       setPage(pageNumber);
+      
+      // Show notification if using fallback (LLM unavailable)
+      if (data.usingFallback && pageNumber === 1) {
+        setLlmUnavailable(true);
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => setLlmUnavailable(false), 5000);
+      }
     } catch (err) {
       if (pageNumber === 1) {
         setError('Failed to load recommendations. Please try again.');
@@ -80,6 +89,7 @@ const RecommendationsPage: React.FC = () => {
     setPage(1);
     setHasNextPage(true);
     setLoadMoreError(null);
+    setLlmUnavailable(false);
     void loadPage(1);
   };
 
@@ -120,6 +130,16 @@ const RecommendationsPage: React.FC = () => {
   return (
     <div className="feed-page">
       <h2>Recommended For You</h2>
+      
+      {llmUnavailable && (
+        <div className="llm-unavailable-popup">
+          <div className="popup-content">
+            <span className="popup-icon">⚠️</span>
+            <p>AI recommendation system temporarily unavailable. Showing popular posts.</p>
+          </div>
+        </div>
+      )}
+      
       {recommendations.map((post, index) => (
         <PostCard key={post._id ?? post.id ?? index} post={post} />
       ))}

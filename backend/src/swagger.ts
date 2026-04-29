@@ -15,8 +15,8 @@ const swaggerSpec = swaggerJsdoc({
     },
     servers: [
       {
-        url: "http://localhost:5000",
-        description: "Development server",
+        url: "https://localhost:5000",
+        description: "Development server (HTTPS)",
       },
     ],
     components: {

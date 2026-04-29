@@ -11,9 +11,22 @@ type KeywordResponse = {
   keywords: string[];
 };
 
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
 class LlmService {
   private readonly baseUrl: string;
   private readonly credentials: string;
+  private readonly cacheTtlMs = Number(process.env["LLM_CACHE_TTL_MS"] || 5 * 60 * 1000);
+  private readonly maxCacheEntries = Number(process.env["LLM_CACHE_MAX_ENTRIES"] || 100);
+  private readonly requestWindowMs = Number(process.env["LLM_RATE_WINDOW_MS"] || 60 * 1000);
+  private readonly maxRequestsPerWindow = Number(process.env["LLM_RATE_MAX_REQUESTS"] || 30);
+  private readonly protectionsEnabled = process.env["NODE_ENV"] !== "test";
+  private readonly jsonCache = new Map<string, CacheEntry<KeywordResponse>>();
+  private readonly textCache = new Map<string, CacheEntry<string>>();
+  private requestTimestamps: number[] = [];
 
   constructor() {
     this.baseUrl = process.env["LLM_BASE_URL"] || "http://10.10.248.41";
@@ -22,7 +35,67 @@ class LlmService {
     this.credentials = Buffer.from(`${username}:${password}`).toString("base64");
   }
 
+  private getFromCache<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+    const entry = cache.get(key);
+    if (!entry) {
+      return null;
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      cache.delete(key);
+      return null;
+    }
+
+    cache.delete(key);
+    cache.set(key, entry);
+    return entry.value;
+  }
+
+  private setCache<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T) {
+    const now = Date.now();
+
+    for (const [entryKey, entry] of cache) {
+      if (now > entry.expiresAt) {
+        cache.delete(entryKey);
+      }
+    }
+
+    while (cache.size >= this.maxCacheEntries) {
+      const oldestKey = cache.keys().next().value;
+      if (!oldestKey) break;
+      cache.delete(oldestKey);
+    }
+
+    cache.set(key, {
+      expiresAt: now + this.cacheTtlMs,
+      value,
+    });
+  }
+
+  private enforceRateLimit() {
+    const now = Date.now();
+    this.requestTimestamps = this.requestTimestamps.filter(
+      (timestamp) => now - timestamp < this.requestWindowMs,
+    );
+
+    if (this.requestTimestamps.length >= this.maxRequestsPerWindow) {
+      throw new Error("LLM rate limit exceeded");
+    }
+
+    this.requestTimestamps.push(now);
+  }
+
   private async generateJson(prompt: string, temperature: number): Promise<KeywordResponse> {
+    const cacheKey = JSON.stringify({ type: "json", prompt, temperature });
+    if (this.protectionsEnabled) {
+      const cached = this.getFromCache(this.jsonCache, cacheKey);
+      if (cached) {
+        return { keywords: [...cached.keywords] };
+      }
+
+      this.enforceRateLimit();
+    }
+
     const response = await fetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: {
@@ -53,11 +126,17 @@ class LlmService {
     }
 
     const parsed = JSON.parse(data.response) as { keywords?: unknown };
-    return {
+    const result = {
       keywords: Array.isArray(parsed.keywords)
         ? parsed.keywords.filter((keyword): keyword is string => typeof keyword === "string" && keyword.length > 0)
         : [],
     };
+
+    if (this.protectionsEnabled) {
+      this.setCache(this.jsonCache, cacheKey, { keywords: [...result.keywords] });
+    }
+
+    return result;
   }
 
   async parseSearchQuery(query: string): Promise<ParsedQuery> {
@@ -105,6 +184,16 @@ Aim for 5-12 keywords. If nothing meaningful, return the original words split in
   }
 
   async generateCompletion(prompt: string, system: string): Promise<string> {
+    const cacheKey = JSON.stringify({ type: "text", prompt, system });
+    if (this.protectionsEnabled) {
+      const cached = this.getFromCache(this.textCache, cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      this.enforceRateLimit();
+    }
+
     const response = await fetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: {
@@ -129,6 +218,10 @@ Aim for 5-12 keywords. If nothing meaningful, return the original words split in
     const data = (await response.json()) as LlmApiResponse;
     if (!data.response) {
       throw new Error("No response from LLM API");
+    }
+
+    if (this.protectionsEnabled) {
+      this.setCache(this.textCache, cacheKey, data.response);
     }
 
     return data.response;
@@ -176,7 +269,7 @@ Return only:
 {
   "keywords": ["word1", "word2", "word3"]
 }`;
-
+console.log("LLM prompt for interest extraction:", prompt);
     try {
       return await this.generateJson(prompt, 0.3);
     } catch (error) {

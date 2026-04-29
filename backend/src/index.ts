@@ -12,6 +12,7 @@ dotenv.config({ path: ".env.dev" });
 
 const app = express();
 const publicDir = path.resolve(__dirname, "..", "public");
+const clientOrigin = process.env.CLIENT_ORIGIN || "https://localhost:5173";
 
 app.use(express.json());
 app.use("/public", express.static(publicDir));
@@ -25,10 +26,17 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 app.use((_req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "*");
-  res.setHeader("Access-Control-Allow-Methods", "*");
-  next();
+  res.setHeader("Access-Control-Allow-Origin", clientOrigin);
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  
+  // Handle preflight requests
+  if (_req.method === "OPTIONS") {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
 });
 
 // Routes
