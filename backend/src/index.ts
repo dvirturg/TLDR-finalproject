@@ -8,7 +8,9 @@ import commentRoute from "./routes/commentRoute";
 import chatRoute from "./routes/chatRoute";
 import userRoute from "./routes/usersRoute";
 
-dotenv.config({ path: ".env.dev" });
+dotenv.config({
+  path: process.env.NODE_ENV === "production" ? ".env.production" : ".env.dev",
+});
 
 const app = express();
 const publicDir = path.resolve(__dirname, "..", "public");

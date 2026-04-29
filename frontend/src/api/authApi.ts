@@ -33,7 +33,6 @@ export const register = async (
 
 export const googleLogin = async (idToken: string): Promise<AuthResponse> => {
   const { data } = await axiosInstance.post<AuthResponse>('/user/google-login', { idToken });
-  console.log('Google login response:', data);
   return data;
 };
 

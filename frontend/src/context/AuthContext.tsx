@@ -78,7 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await logoutApi(refreshToken);
       } catch (error) {
         // Continue with logout even if API call fails
-        console.error('Logout API failed:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Logout API failed:', error);
+        }
       }
     }
     persist(null, null, null);

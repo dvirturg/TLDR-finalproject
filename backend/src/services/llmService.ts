@@ -269,7 +269,9 @@ Return only:
 {
   "keywords": ["word1", "word2", "word3"]
 }`;
-console.log("LLM prompt for interest extraction:", prompt);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[LLM] Extracting interests from likes...");
+    }
     try {
       return await this.generateJson(prompt, 0.3);
     } catch (error) {

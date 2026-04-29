@@ -281,17 +281,14 @@ export const postController = {
       const skip = (page - 1) * limit;
 
       const likedTexts = await searchService.getUserLikedPostTexts(userId);
-      console.log("Liked post texts for user", userId, ":", likedTexts);
 
       let recommendedPosts: any[];
       let usingFallback = false;
 
       if (likedTexts.length === 0) {
         recommendedPosts = await getGenericRecommendationFeed(userId);
-        console.log("recommendedPosts based on generic feed:", recommendedPosts.map(p => p._id));
       } else {
         const { keywords } = await llmService.extractInterestsFromLikes(likedTexts);
-        console.log("Extracted keywords for user", userId, ":", keywords);
         
         if (keywords.length > 0) {
           recommendedPosts = await searchService.getRecommendedPostsByKeywords(userId, keywords);
@@ -305,7 +302,6 @@ export const postController = {
       const totalPosts = recommendedPosts.length;
       const paginatedPosts = recommendedPosts.slice(skip, skip + limit);
       const safeData = await serializePosts(paginatedPosts, userId);
-      console.log("Returning recommended posts for user", userId, ":", safeData.map(p => p.id));
       
       return res.json({ 
         data: safeData,
