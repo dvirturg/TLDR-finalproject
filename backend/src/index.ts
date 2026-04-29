@@ -14,11 +14,12 @@ dotenv.config({
 
 const app = express();
 const publicDir = path.resolve(process.cwd(), "public");
+const uploadsDir = path.resolve(process.cwd(), "uploads");
 const clientOrigin = process.env.CLIENT_ORIGIN || "https://localhost:5173";
 
 app.use(express.json());
 app.use("/public", express.static(publicDir));
-app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
+app.use("/uploads", express.static(uploadsDir));
 
 // Swagger UI setup
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
