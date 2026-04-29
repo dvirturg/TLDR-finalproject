@@ -107,31 +107,6 @@ Default local URLs:
 - Frontend: `https://localhost:5173`
 - Swagger docs: `https://localhost:5000/api-docs`
 
-## AI, Embeddings, and RAG
-
-AI calls are handled by the backend only. The frontend uses normal application endpoints and does not call Gemini directly.
-
-The RAG flow is:
-
-```text
-Post text
--> chunking
--> Gemini document embeddings
--> MongoDB postembeddings collection
--> query embedding
--> cosine similarity retrieval
--> grounded answer or ranked search/recommendation results
-```
-
-Existing posts need embeddings before RAG search/recommendations can use them:
-
-```bash
-cd backend
-npm run embeddings:backfill
-```
-
-New posts created through the API automatically generate embeddings. Updated posts rebuild embeddings, and deleted posts remove their embedding records.
-
 ## Build and Test
 
 Backend:
