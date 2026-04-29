@@ -9,7 +9,6 @@ import {
   authenticateGoogleUser,
   authenticateLocalUser,
   registerLocalUser,
-  buildAuthResponse
 } from '../services/authService';
 
 export async function register(req: Request, res: Response): Promise<void> {
@@ -126,9 +125,21 @@ export const googleLogin = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid Google credentials" });
     }
 
-    const userObj = user.toObject ? user.toObject() : user;
+    // Generate and save refresh token to database
+    const tokens = generateTokens(user._id.toString(), user.username);
+    user.refreshTokens.push(tokens.refreshToken);
+    await user.save();
     
-    return res.status(200).json(buildAuthResponse(userObj));
+    return res.status(200).json({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        profileUrl: user.profileUrl,
+      },
+    });
   } catch (error) {
     console.error("Google Login Error:", error);
     return res.status(401).json({ message: "Invalid Google credentials" });

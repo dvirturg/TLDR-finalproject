@@ -11,6 +11,22 @@ interface PostsResponse {
   };
 }
 
+interface SearchPostsResponse {
+  posts: PostInter[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalPosts: number;
+    hasNextPage: boolean;
+  };
+}
+
+interface RecommendationsResponse {
+  data: PostInter[];
+  pages: number;
+  usingFallback?: boolean;
+}
+
 export const getPosts = async (params?: { page?: number; limit?: number; q?: string }) => {
   const response = await axiosInstance.get<PostsResponse>('/post', { params });
   return response.data;
@@ -48,14 +64,14 @@ export const getPostsByUserId = async (userId: string) => {
 };
 
 export const searchPosts = async (query: string, params?: { page?: number; limit?: number }) => {
-  const response = await axiosInstance.get<{ data: PostInter[]; pages: number }>('/post/search', {
+  const response = await axiosInstance.get<SearchPostsResponse>('/post/search', {
     params: { q: query, ...params },
   });
   return response.data;
 };
 
-export const getRecommendedPosts = async (userId: string, params?: { page?: number; limit?: number }) => {
-  const response = await axiosInstance.get<{ data: PostInter[]; pages: number }>(`/post/recommendations`, {
+export const getRecommendedPosts = async (_userId?: string, params?: { page?: number; limit?: number }) => {
+  const response = await axiosInstance.get<RecommendationsResponse>(`/post/recommendations`, {
     params,
   });
   return response.data;

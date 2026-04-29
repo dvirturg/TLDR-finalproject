@@ -45,14 +45,15 @@ export function attachChatSocket(
   });
 
   io.on("connection", (socket: Socket) => {
-    console.log(`Socket connected: ${socket.id}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Socket] Connected: ${socket.id}`);
+    }
 
     socket.on("join", (userId: string) => {
       socket.join(userId);
       addOnline(userId, socket.id);
       io.emit("user_online", userId);
       socket.emit("online_users", Array.from(onlineUsers.keys()));
-      console.log(`Socket ${socket.id} joined room: ${userId}`);
     });
 
     socket.on("send_message", async (payload: SendMessagePayload) => {
@@ -87,7 +88,9 @@ export function attachChatSocket(
       if (userId && !onlineUsers.has(userId)) {
         io.emit("user_offline", userId);
       }
-      console.log(`Socket disconnected: ${socket.id}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Socket] Disconnected: ${socket.id}`);
+      }
     });
   });
 

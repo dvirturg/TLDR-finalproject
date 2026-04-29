@@ -22,7 +22,7 @@ const SearchPage: React.FC = () => {
     try {
       const postsRes = await searchPosts(query, { page: currentPage });
       setPostResults(postsRes.posts || []);
-      setPages(postsRes.pages || 1);
+      setPages(postsRes.pagination?.totalPages || 1);
       setPage(currentPage);
     } catch (err) {
       setError('Failed to search. Please try again.');

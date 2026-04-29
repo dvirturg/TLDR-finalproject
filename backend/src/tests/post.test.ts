@@ -94,11 +94,13 @@ describe("Post API", () => {
   });
 
   test("Get All Posts and check populate", async () => {
-    const response = await request(app).get("/api/post");
+    const response = await request(app)
+      .get("/api/post")
+      .set("Authorization", `Bearer ${accessToken}`);
     expect(response.status).toBe(200);
-    expect(response.body.length).toBe(postsList.length);
-    expect(response.body[0].author._id).toBe(testUserId);
-    expect(response.body[0].author.username).toBe("PostAuthor");
+    expect(response.body.data).toHaveLength(postsList.length);
+    expect(response.body.data[0].author.id).toBe(testUserId);
+    expect(response.body.data[0].author.username).toBe("PostAuthor");
   });
 
   test("Create Post with image upload", async () => {
@@ -110,7 +112,7 @@ describe("Post API", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.text).toBe("post with image");
-    expect(response.body.author._id).toBe(testUserId);
+    expect(response.body.author.id).toBe(testUserId);
   });
 
   test("Update Post and maintain populate", async () => {
@@ -131,14 +133,16 @@ describe("Post API", () => {
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.message).toBe("Post liked successfully");
+    expect(response.body.likedByCurrentUser).toBe(true);
+    expect(response.body.likes).toBe(1);
 
     const toggleResponse = await request(app)
       .post(`/api/post/${postsList[0]._id}/like`)
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(toggleResponse.status).toBe(200);
-    expect(toggleResponse.body.message).toBe("Post unliked successfully");
+    expect(toggleResponse.body.likedByCurrentUser).toBe(false);
+    expect(toggleResponse.body.likes).toBe(0);
   });
 
   test("Delete Post", async () => {
