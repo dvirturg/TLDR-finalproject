@@ -6,6 +6,7 @@ import { Types } from "mongoose";
 import { AuthRequest } from "../types/auth";
 import searchService from "../services/searchService";
 import llmService from "../services/llmService";
+import ragService from "../services/ragService";
 import { getCommentCountMap, toPostDTO } from "../utils/postSerializer";
 
 const removeUploadedFile = async (filePath?: string) => {
@@ -29,6 +30,53 @@ const getGenericRecommendationFeed = async (userId: string) => {
     .populate("author", "username profileUrl");
 };
 
+const syncPostEmbeddings = async (postId?: unknown) => {
+  if (!postId) return;
+  await ragService.rebuildPostEmbeddings(String(postId)).catch((error) => {
+    console.error("Failed to rebuild post embeddings:", error);
+  });
+};
+
+const removePostEmbeddings = async (postId?: unknown) => {
+  if (!postId) return;
+  await ragService.deletePostEmbeddings(String(postId)).catch((error) => {
+    console.error("Failed to delete post embeddings:", error);
+  });
+};
+
+const findPostsByRankedIds = async (postIds: string[]) => {
+  const uniqueIds = [...new Set(postIds)].filter((id) => Types.ObjectId.isValid(id));
+  if (uniqueIds.length === 0) return [];
+
+  const posts = await Post.find({ _id: { $in: uniqueIds } })
+    .populate("author", "username profileUrl");
+
+  const postById = new Map(posts.map((post) => [String(post._id), post]));
+  return uniqueIds
+    .map((id) => postById.get(id))
+    .filter((post): post is NonNullable<typeof post> => Boolean(post));
+};
+
+const readNumber = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getRecommendationThreshold = () => readNumber(process.env.RAG_RECOMMENDATION_MIN_SCORE, 0.45);
+
+const findEligibleRecommendationPostIds = async (userId: string) => {
+  if (!Types.ObjectId.isValid(userId)) return [];
+
+  const posts = await Post.find({
+    author: { $ne: new Types.ObjectId(userId) },
+    likes: { $ne: new Types.ObjectId(userId) },
+  })
+    .select("_id")
+    .lean<Array<{ _id: Types.ObjectId }>>();
+
+  return posts.map((post) => String(post._id));
+};
+
 export const postController = {
   async createPost(req: AuthRequest, res: Response) {
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
@@ -44,6 +92,7 @@ export const postController = {
 
     try {
       const newPost = await Post.create({ text, author, imageUrl });
+      await syncPostEmbeddings(newPost._id);
       const populatedPost = await Post.findById(newPost._id).populate("author", "username profileUrl");
       const serializedPost = await serializePosts([populatedPost], author);
       res.status(201).json(serializedPost[0]);
@@ -103,6 +152,33 @@ export const postController = {
       const page = parseInt(req.query.page as string) || 1;
       const limit = 10;
 
+      const embeddingSources = await ragService.retrieveRelevantChunks(
+        query,
+        Math.max(page * limit * 2, ragService.defaultTopK),
+      );
+
+      if (embeddingSources.length > 0) {
+        const embeddingPosts = await findPostsByRankedIds(embeddingSources.map((source) => source.postId));
+        const totalPosts = embeddingPosts.length;
+        const paginatedPosts = embeddingPosts.slice((page - 1) * limit, page * limit);
+        const safePosts = await serializePosts(paginatedPosts, userId);
+
+        return res.json({
+          posts: safePosts,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(totalPosts / limit),
+            totalPosts,
+            hasNextPage: page * limit < totalPosts,
+          },
+          ai: {
+            usingEmbeddings: true,
+            topK: Math.max(page * limit * 2, ragService.defaultTopK),
+            threshold: ragService.defaultThreshold,
+          },
+        });
+      }
+
       // Simple regex search
       const regexPattern = new RegExp(query, "i");
       const regexPosts = await Post.find({ text: regexPattern })
@@ -135,6 +211,10 @@ export const postController = {
           totalPages: Math.ceil(totalPosts / limit),
           totalPosts,
           hasNextPage: page * limit < totalPosts,
+        },
+        ai: {
+          usingEmbeddings: false,
+          usingFallback: true,
         },
       });
     } catch (error) {
@@ -204,6 +284,8 @@ export const postController = {
         returnDocument: "after",
       }).populate("author", "username profileUrl");
 
+      await syncPostEmbeddings(postId);
+
       const currentUserId = req.user?.sub;
       const serializedPost = await serializePosts([updatedPost], currentUserId);
       return res.json(serializedPost[0]);
@@ -226,6 +308,7 @@ export const postController = {
       }
 
       await Post.findByIdAndDelete(postId);
+      await removePostEmbeddings(postId);
       return res.json({ message: "Post deleted successfully" });
     } catch (err) {
       console.error(err);
@@ -280,22 +363,43 @@ export const postController = {
       const limit = 10;
       const skip = (page - 1) * limit;
 
-      const likedTexts = await searchService.getUserLikedPostTexts(userId);
+      const likedPosts = await searchService.getUserLikedPostsForRecommendations(userId);
+      const likedTexts = likedPosts.map((post) => post.text);
 
       let recommendedPosts: any[];
       let usingFallback = false;
+      let usingEmbeddings = false;
 
       if (likedTexts.length === 0) {
         recommendedPosts = await getGenericRecommendationFeed(userId);
       } else {
-        const { keywords } = await llmService.extractInterestsFromLikes(likedTexts);
-        
-        if (keywords.length > 0) {
-          recommendedPosts = await searchService.getRecommendedPostsByKeywords(userId, keywords);
+        const eligiblePostIds = await findEligibleRecommendationPostIds(userId);
+        const embeddingSources = await ragService.retrieveRelevantChunks(
+          likedTexts.join("\n"),
+          Math.max(page * limit * 8, ragService.defaultTopK),
+          getRecommendationThreshold(),
+          {
+            includePostIds: eligiblePostIds,
+            excludePostIds: likedPosts.map((post) => post.id),
+          },
+        );
+        const rankedPosts = await findPostsByRankedIds(embeddingSources.map((source) => source.postId));
+        const eligibleSet = new Set(eligiblePostIds);
+        recommendedPosts = rankedPosts.filter((post) => eligibleSet.has(String(post._id)));
+
+        if (recommendedPosts.length > 0) {
+          usingEmbeddings = true;
         } else {
-          // LLM returned empty keywords - using fallback
-          recommendedPosts = await getGenericRecommendationFeed(userId);
-          usingFallback = true;
+          const { keywords } = await llmService.extractInterestsFromLikes(likedTexts);
+          
+          if (keywords.length > 0) {
+            recommendedPosts = await searchService.getRecommendedPostsByKeywords(userId, keywords);
+            usingFallback = true;
+          } else {
+            // LLM returned empty keywords - using fallback
+            recommendedPosts = await getGenericRecommendationFeed(userId);
+            usingFallback = true;
+          }
         }
       }
 
@@ -306,7 +410,8 @@ export const postController = {
       return res.json({ 
         data: safeData,
         pages: Math.ceil(totalPosts / limit),
-        usingFallback
+        usingFallback,
+        usingEmbeddings,
       });
     } catch (error) {
       console.error("Recommendation Error:", error);

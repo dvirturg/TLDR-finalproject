@@ -8,13 +8,15 @@
     "build": "tsc",
     "start": "NODE_ENV=production node dist/server.js",
     "test": "jest -runInBand",
-    "seed:posts": "ts-node src/scripts/seedMockPosts.ts"
+    "seed:posts": "ts-node src/scripts/seedMockPosts.ts",
+    "embeddings:backfill": "ts-node src/scripts/backfillPostEmbeddings.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/genai": "^1.50.1",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",

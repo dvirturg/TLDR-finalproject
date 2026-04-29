@@ -7,6 +7,7 @@ import postsRoute from "./routes/postsRoute";
 import commentRoute from "./routes/commentRoute";
 import chatRoute from "./routes/chatRoute";
 import userRoute from "./routes/usersRoute";
+import ragRoute from "./routes/ragRoute";
 
 dotenv.config({
   path: process.env.NODE_ENV === "production" ? ".env.production" : ".env.dev",
@@ -47,6 +48,7 @@ app.use("/api/post", postsRoute);
 app.use("/api/comment", commentRoute);
 app.use("/api/chat", chatRoute);
 app.use("/api/user", userRoute);
+app.use("/api/rag", ragRoute);
 
 
 // Swagger JSON endpoint

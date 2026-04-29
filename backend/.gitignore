@@ -5,3 +5,4 @@ public/uploads/posts/*
 !public/uploads/posts/.gitkeep
 .../images/*
 .../dist/*
+coverage

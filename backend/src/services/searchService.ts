@@ -3,6 +3,7 @@ import Post from "../models/postModel";
 import { ParsedQuery } from "./llmService";
 
 type LeanLikedPost = {
+  _id: Types.ObjectId;
   text?: unknown;
 };
 
@@ -68,15 +69,24 @@ class SearchService {
   }
 
   async getUserLikedPostTexts(userId: string): Promise<string[]> {
+    const likedPosts = await this.getUserLikedPostsForRecommendations(userId);
+
+    return likedPosts.map((post) => post.text);
+  }
+
+  async getUserLikedPostsForRecommendations(userId: string): Promise<Array<{ id: string; text: string }>> {
     const likedPosts = await Post.find({ likes: userId })
       .sort({ createdAt: -1 })
       .limit(10)
-      .select("text")
+      .select("_id text")
       .lean<LeanLikedPost[]>();
 
     return likedPosts
-      .map((post) => post.text)
-      .filter((text): text is string => typeof text === "string" && text.trim().length > 0);
+      .filter((post) => typeof post.text === "string" && post.text.trim().length > 0)
+      .map((post) => ({
+        id: String(post._id),
+        text: (post.text as string).trim(),
+      }));
   }
 
   async getRecommendedPostsByKeywords(userId: string, keywords: string[]) {

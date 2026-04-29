@@ -4,6 +4,7 @@ import { postPaths, postSchemas, postTags } from "./docs/post.swagger";
 import { commentPaths, commentSchemas, commentTags } from "./docs/comment.swagger";
 import { userSchemas, userPaths, userTags } from "./docs/user.swagger";
 import { chatPaths, chatSchemas, chatTags } from "./docs/chat.swagger";
+import { ragPaths, ragSchemas, ragTags } from "./docs/rag.swagger";
 
 const swaggerSpec = swaggerJsdoc({
   definition: {
@@ -32,6 +33,7 @@ const swaggerSpec = swaggerJsdoc({
         ...chatSchemas,
         ...commentSchemas,
         ...postSchemas,
+        ...ragSchemas,
         ...userSchemas, 
       },
     },
@@ -44,12 +46,14 @@ const swaggerSpec = swaggerJsdoc({
       ...chatPaths,
       ...commentPaths,
       ...postPaths,
+      ...ragPaths,
       ...userPaths, 
     },
     tags: [
       ...chatTags,
       ...commentTags, 
       ...postTags, 
+      ...ragTags,
       ...userTags 
     ],
   },
